@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tower Defense</title>
+
+    <style>
+        #mainPage {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: navy;
+            overflow-x: hidden;
+            overflow-y: hidden;
+        }
+
+        #gameBoard {
+            position: absolute;
+            background-color: black;
+            top: 0;
+            left: 0;
+            width: 85vw;
+            height: calc(100vw / 2);
+            z-index: 10;
+        }
+
+        #gameShopMenu {
+            position: absolute;
+            background-color: white;
+            top: 0;
+            right: 0;
+            width: 15vw;
+            height: calc(100vw / 2);
+            z-index: 10;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="mainPage">
+        <canvas id="gameBoard"></canvas>
+        <div id="gameShopMenu"></div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const spacing = 50;
+        var selectedBuyableTower = null
+        const gameBoard = document.getElementById('gameBoard');
+        const ctx = gameBoard.getContext('2d');
+        var towerShop = document.getElementById("gameShopMenu");
+        towerList = [
+            1
+        ];
+        getShopItems();
+
+        function drawGrid(grid, rows, cols) {
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    if (grid[i][j].hasPath) {
+                        ctx.fillStyle = 'burlywood';
+                    } else {
+                        ctx.fillStyle = 'lightgreen';
+                    }
+                    ctx.fillRect(j * spacing, i * spacing, spacing, spacing);
+                }
+            }
+        }
+
+        function drawEnemy(enemy) {
+            const { x, y, color, size, healthBorder, borderColor } = enemy;
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x * spacing + spacing / 2, y * spacing + spacing / 2, size / 2, 0, 2 * Math.PI);
+            ctx.fill();
+            if (healthBorder) {
+                ctx.strokeStyle = borderColor;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        }
+
+        function drawTower(tower) {
+            const { x, y, color, size } = tower;
+            ctx.fillStyle = color;
+            ctx.fillRect(x * spacing, y * spacing, spacing, spacing);
+            ctx.strokeStyle = 'black';
+            ctx.strokeRect(x * spacing, y * spacing, spacing, spacing);
+        }
+
+        function getShopItems() {
+            console.log(towerList)
+            towerList.forEach(tower => {
+                const item = document.createElement('button');
+                item.name = 'basic'
+                item.style.width = "100px";
+                item.style.height = "100px";
+                item.style.backgroundColor = "white"
+                item.addEventListener('mouseover', function () {
+                    item.style.backgroundColor = "gray";
+                    item.style.cursor = "pointer";
+                });
+                item.addEventListener('mouseout', function () {
+                    item.style.backgroundColor = "white";
+                    item.style.cursor = "default";
+                });
+                item.addEventListener('click', function () {
+                    console.log("Got Tower")
+                    if (selectedBuyableTower == item.name) {
+                        selectedBuyableTower = null
+                    } else {
+                        selectedBuyableTower = item.name
+                    }
+                    console.log(selectedBuyableTower)
+                    // the if statement below is supposed to be for selecting a grid square
+                if  (selectedBuyableTower != null) {
+                    const handleClick = (event) => {
+                        const rect = gameBoard.getBoundingClientRect();
+                        const x = (event.clientX - rect.left + window.scrollX)/32;
+                        const y = (event.clientY - rect.top + window.scrollY)/20;
+                        console.log(x, y);
+                        socket.emit('towerPlace', {x, y})
+                        gameBoard.removeEventListener('click', handleClick)
+                    };
+
+                    gameBoard.addEventListener('click', handleClick)
+
+                    // Example of removing the event listener
+                    // gameBoard.removeEventListener('click', handleClick);
+
+                    } else {
+                        console.log("hey there mr guy")
+                    }
+                });
+                towerShop.appendChild(item);
+            })
+        }
+
+        socket.on('gameData', (data) => {
+            const grid = data[0].grid
+            const rows = data[0].rows
+            const cols = data[0].cols
+            const enemies = data[1]
+            const towers = data[2]
+
+            gameBoard.width = cols * spacing;
+            gameBoard.height = rows * spacing;
+            drawGrid(grid, rows, cols);
+            enemies.forEach(enemy => {
+                drawEnemy(enemy);
+            });
+            towers.forEach(tower => {
+                drawTower(tower)
+            })
+        });
+
+
+
+        // class Tower {
+        //     constructor(presetTower, options, y, x, range, damage, fireRate, targetingType, projectileType) {
+        //         this.x = x;
+        //         this.y = y;
+        //         switch (presetTower) {
+        //             case 'basic':
+        //                 this.range = 4;
+        //                 this.damage = 2;
+        //                 this.fireRate = 3;
+        //                 this.name = 'Basic';
+        //                 break;
+        //         }
+        //         this.damageCount = 0;
+        //         this.targetingType = 'first';
+        //         this.intervalId = setInterval(() => this.shoot(), 1000 / this.fireRate);
+        //         gameBoard.addEventListener('click', (event) => {
+
+        //             const rect = gameBoard.getBoundingClientRect();
+        //             let xSpacing = rect.width / cols;
+        //             let ySpacing = rect.height / rows;
+        //             const x = Math.floor((event.clientX - rect.left + window.scrollX) / xSpacing);
+        //             const y = Math.floor((event.clientY - rect.top + window.scrollY) / ySpacing);
+
+        //             if (this.x === x && this.y === y) {
+        //                 if (selectedTower === this) {
+        //                     selectedTower = null;
+        //                 } else {
+        //                     selectedTower = this;
+        //                 }
+        //             }
+        //         });
+        //         this.draw();
+        //     }
+
+        //     draw() {
+        //         ctx.fillStyle = 'cyan';
+        //         ctx.fillRect(this.x * spacing, this.y * spacing, spacing, spacing);
+        //         ctx.strokeStyle = 'black';
+        //         ctx.strokeRect(this.x * spacing, this.y * spacing, spacing, spacing);
+        //     }
+
+        //     findTarget() {
+        //         let targetEnemy = null;
+        //         let enemyFarthestFromStart = 0;
+        //         let enemyHighestHealth = 0;
+        //         let closestDistance = Infinity;
+        //         enemies.forEach(enemy => {
+
+        //             const distance = Math.sqrt(Math.pow(enemy.x - this.x, 2) + Math.pow(enemy.y - this.y, 2));
+        //             const distanceFromStart = enemy.distanceFromStart;
+        //             const maxHealth = enemy.maxHealth;
+
+        //             switch (this.targetingType) {
+
+        //                 case 'first':
+        //                     if (distance <= this.range && distanceFromStart > enemyFarthestFromStart) {
+        //                         enemyFarthestFromStart = distanceFromStart;
+        //                         targetEnemy = enemy;
+        //                     }
+        //                     break;
+        //                 case 'last':
+        //                     if (distance <= this.range && distanceFromStart < enemyFarthestFromStart) {
+        //                         enemyFarthestFromStart = distanceFromStart;
+        //                         targetEnemy = enemy;
+        //                     }
+        //                     break;
+        //                 case 'strong':
+        //                     if (maxHealth > enemyHighestHealth) {
+        //                         enemyHighestHealth = maxHealth;
+        //                         targetEnemy = enemy;
+        //                     }
+        //                     break;
+        //                 case 'weak':
+        //                     if (maxHealth < enemyHighestHealth) {
+        //                         enemyHighestHealth = maxHealth;
+        //                         targetEnemy = enemy;
+        //                     }
+        //                     break;
+        //                 case 'close':
+        //                     if (distance < closestDistance) {
+        //                         closestDistance = distance;
+        //                         targetEnemy = enemy;
+        //                     }
+        //                     break;
+        //                 case 'far':
+        //                     if (distance > closestDistance) {
+        //                         closestDistance = distance;
+        //                         targetEnemy = enemy;
+        //                     }
+        //                     break;
+        //             }
+        //         });
+
+        //         return targetEnemy;
+        //     }
+
+        //     shoot() {
+        //         const target = this.findTarget();
+
+        //         if (!target) return;
+
+        //         const enemyInstance = target;
+        //         const distance = Math.sqrt(Math.pow(enemyInstance.x - this.x, 2) + Math.pow(enemyInstance.y - this.y, 2));
+
+        //         if (distance <= this.range) {
+        //             if (enemyInstance.health <= this.damage) {
+        //                 this.damageCount += enemyInstance.health;
+        //             } else {
+        //                 this.damageCount += this.damage;
+        //             }
+        //             enemyInstance.health -= this.damage;
+        //             if (enemyInstance.health <= 0) {
+        //                 const index = enemies.indexOf(enemyInstance);
+        //                 if (index > -1) {
+        //                     enemies.splice(index, 1);
+        //                 }
+        //             }
+        //             if (enemyInstance.healthBorder) {
+        //                 enemyInstance.updateHealthBorder();
+        //             }
+
+        //             ctx.strokeStyle = 'yellow';
+        //             ctx.lineWidth = 2;
+        //             ctx.beginPath();
+        //             ctx.moveTo(this.x * spacing + spacing / 2, this.y * spacing + spacing / 2);
+        //             ctx.lineTo(enemyInstance.x * spacing + spacing / 2, enemyInstance.y * spacing + spacing / 2);
+        //             ctx.stroke();
+        //         }
+        //     }
+        // }
+
+        // var towers = [];
+        // let tower = new Tower('basic', {}, 10, 10);
+        // towers.push(tower);
+
+        // setInterval(() => {
+        //     ctx.clearRect(0, 0, gameBoard.width, gameBoard.height);
+        //     drawGrid();
+
+        //     if (selectedTower != null) {
+        //         ctx.beginPath();
+        //         ctx.arc(selectedTower.x * spacing + spacing / 2, selectedTower.y * spacing + spacing / 2, selectedTower.range * spacing, 0, 2 * Math.PI);
+        //         ctx.strokeStyle = 'black';
+        //         ctx.fillStyle = 'rgba(128, 128, 128, 0.5)';
+        //         ctx.fill();
+        //         ctx.lineWidth = 1;
+        //         ctx.stroke();
+        //     }
+        //     // Update and draw all enemies
+        //     enemies.forEach(enemy => {
+
+        //         enemy.move();
+        //     });
+        //     // Draw all towers
+        //     towers.forEach(tower => {
+        //         tower.draw();
+        //     });
+
+        // }, 1000 / 60); // 60 FPS
+
+    </script>
+</body>
+
+</html>

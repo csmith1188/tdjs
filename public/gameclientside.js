@@ -71,9 +71,11 @@ const socket = io();
                 if  (selectedBuyableTower != null) {
                     const handleClick = (event) => {
                         const rect = gameBoard.getBoundingClientRect();
-                        const x = (event.clientX - rect.left + window.scrollX)/32;
-                        const y = (event.clientY - rect.top + window.scrollY)/20;
-                        console.log(x, y);
+                        const cellWidth = rect.width / 32;
+                        const cellHeight = rect.height / 20;
+                        const x = (event.clientX - (rect.left + window.scrollX))/cellWidth;
+                        const y = (event.clientY - (rect.top + window.scrollY))/cellHeight;
+                        console.log(rect, x, y);
                         socket.emit('towerPlace', {x, y})
                         gameBoard.removeEventListener('click', handleClick)
                     };

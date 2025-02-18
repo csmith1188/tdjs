@@ -38,7 +38,7 @@ function postlogin(req, res, db, crypto) {
                                     res.send('Whoops! Something went wrong :(')
                                 } else {
                                     req.session.user = req.body.user;
-                                    res.render('/');
+                                    res.redirect('/');
                                 }
                             })
                         }

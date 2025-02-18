@@ -3,6 +3,7 @@
 const pathPoint = [{ y: 2, x: 0 }, { y: 2, x: 8 }, { y: 12, x: 8 }, { y: 12, x: 16 }, { y: 2, x: 16 }, { y: 2, x: 24 }, { y: 18, x: 24 }, { y: 18, x: 31 }];
 enemies = []
 towers = []
+users = []
 
 // use the format of { enemyType: '<enemy name>', amount: #, spawnInterval: #, wait: # } inside of a list inside the waves list to make a section of a wave
 waves = [
@@ -365,9 +366,22 @@ function spawnWaveSection(section) {
 
 
 
-function connection(socket, io) {
-    console.log('A user connected');
+//  OOO    TTTTT   H   H    EEEEE    RRRR
+// O   O     T     H   H    EE       R   R
+// O   O     T     HHHHH    EEEE     RRRR
+// O   O     T     H   H    EE       R  R
+//  OOO      T     H   H    EEEEE    R   R
 
+function connection(socket, io) {
+    socket.id = socket.request.session.user;
+    console.log('A user connected,', socket.id);
+    if (!users.find(user => user.id === socket.id)) {
+        users.push({ id: socket.id });
+        enemies.push([]);
+        towers.push([]);
+    }
+    
+    const userIndex = users.findIndex(user => user.id === socket.id);
     const rows = 20;
     const cols = 32;
     let grid = initializeGrid(rows, cols);
@@ -377,19 +391,21 @@ function connection(socket, io) {
     let tower = new Tower('basic', {}, 10, 10);
     towers.push(tower);
     let updateUserGameData = setInterval(() => {
-        enemies.forEach(enemy => {
+        enemies[userIndex].forEach(enemy => {
             enemy.move();
         });
-        towers.forEach(tower => {
-            tower.shoot()
+        towers[userIndex].forEach(tower => {
+            tower.shoot(userIndex);
         })
-        io.emit('gameData', [{ grid, rows, cols }, enemies, towers]);
+        socket.emit('gameData', [{ grid, rows, cols }, enemies[userIndex], towers[userIndex]]);
     }, 1000 / 60); // 60 FPS
 
     socket.on('towerPlace', placementCoords => {
         let x = Math.floor(placementCoords.x)
         let y = Math.floor(placementCoords.y)
-        console.log(x, y);
+        if (!grid[y][x].hasPath && !towers.find(tower => tower.x === x && tower.y === y)) {
+            towers[userIndex].push(new Tower('basic', {}, y, x));
+        }
         
         
     })
@@ -399,7 +415,7 @@ function connection(socket, io) {
     });
 
     socket.on('disconnect', () => {
-        console.log('A user disconnected');
+        console.log('A user disconnected,', socket.id);
     });
 };
 

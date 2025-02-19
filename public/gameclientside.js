@@ -77,6 +77,7 @@ const socket = io();
                         const y = (event.clientY - (rect.top + window.scrollY))/cellHeight;
                         console.log(rect, x, y);
                         socket.emit('towerPlace', {x, y})
+                        selectedBuyableTower = null
                         gameBoard.removeEventListener('click', handleClick)
                     };
 

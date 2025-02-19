@@ -58,15 +58,16 @@ waves = [
 // EE      NN NNN   EE      MM   MM     YYY
 // EEEEE   NN  NN   EEEEE   MM   MM     YYY
 class Enemy {
-    constructor(enemyType, options) {
+    constructor(enemyType, userIndex, options) {
         this.x = 0;
         this.y = 2;
+        this.userIndex = userIndex;
         this.enemyType = enemyType;
         this.healthBorder = options.healthBorder || false;
         this.distanceFromStart = 0
         this.updateStats();
-        enemies.push(this);
-        this.updatePosition();
+        enemies[this.userIndex].push(this);
+        this.updatePosition(this.userIndex);
     }
 
     updateStats() {
@@ -112,10 +113,10 @@ class Enemy {
     }
 
     updatePosition() {
-        const enemyIndex = enemies.findIndex(e => e === this);
+        const enemyIndex = enemies[this.userIndex].findIndex(e => e === this);
         this.distanceFromStart++
         if (enemyIndex !== -1) {
-            enemies[enemyIndex] = this;
+            enemies[this.userIndex][enemyIndex] = this;
         }
 
     }
@@ -128,7 +129,7 @@ class Enemy {
                 this.nextX = pathPoint[currentIndex + 1].x;
                 this.nextY = pathPoint[currentIndex + 1].y;
             } else {
-                enemies.splice(enemies.indexOf(this), 1)
+                enemies[this.userIndex].splice(enemies[this.userIndex].indexOf(this), 1)
             }
         }
 
@@ -165,131 +166,132 @@ class Enemy {
 //     TTT      OOOOO     WW WW    EEEEE   R   R    SSS 
 
 class Tower {
-        constructor(presetTower, options, y, x, range, damage, fireRate, targetingType, projectileType) {
-            this.x = x;
-            this.y = y;
-            switch (presetTower) {
-                case 'basic':
-                    this.size = 10
-                    this.color = 'lightblue'
-                    this.range = 4;
-                    this.damage = 2;
-                    this.fireRate = 3;
-                    this.name = 'Basic';
+    constructor(presetTower, userIndex, options, y, x, range, damage, fireRate, targetingType, projectileType) {
+        this.x = x;
+        this.y = y;
+        this.userIndex = userIndex;
+        switch (presetTower) {
+            case 'basic':
+                this.size = 10
+                this.color = 'lightblue'
+                this.range = 4;
+                this.damage = 2;
+                this.fireRate = 3;
+                this.name = 'Basic';
+                break;
+        }
+        this.damageCount = 0;
+        this.targetingType = 'first';
+        // this.intervalId = setInterval(() => this.shoot(), 1000 / this.fireRate);
+        // gameBoard.addEventListener('click', (event) => {
+
+        //     const rect = gameBoard.getBoundingClientRect();
+        //     let xSpacing = rect.width / cols;
+        //     let ySpacing = rect.height / rows;
+        //     const x = Math.floor((event.clientX - rect.left + window.scrollX) / xSpacing);
+        //     const y = Math.floor((event.clientY - rect.top + window.scrollY) / ySpacing);
+
+        //     if (this.x === x && this.y === y) {
+        //         if (selectedTower === this) {
+        //             selectedTower = null;
+        //         } else {
+        //             selectedTower = this;
+        //         }
+        //     }
+        // });
+    }
+
+    findTarget() {
+        let targetEnemy = null;
+        let enemyFarthestFromStart = 0;
+        let enemyHighestHealth = 0;
+        let closestDistance = Infinity;
+        enemies[this.userIndex].forEach(enemy => {
+
+            const distance = Math.sqrt(Math.pow(enemy.x - this.x, 2) + Math.pow(enemy.y - this.y, 2));
+            const distanceFromStart = enemy.distanceFromStart;
+            const maxHealth = enemy.maxHealth;
+
+
+
+            switch (this.targetingType) {
+
+                case 'first':
+                    if (distance <= this.range && distanceFromStart > enemyFarthestFromStart) {
+                        enemyFarthestFromStart = distanceFromStart;
+                        targetEnemy = enemy;
+                    }
+                    break;
+                case 'last':
+                    if (distance <= this.range && distanceFromStart < enemyFarthestFromStart) {
+                        enemyFarthestFromStart = distanceFromStart;
+                        targetEnemy = enemy;
+                    }
+                    break;
+                case 'strong':
+                    if (maxHealth > enemyHighestHealth) {
+                        enemyHighestHealth = maxHealth;
+                        targetEnemy = enemy;
+                    }
+                    break;
+                case 'weak':
+                    if (maxHealth < enemyHighestHealth) {
+                        enemyHighestHealth = maxHealth;
+                        targetEnemy = enemy;
+                    }
+                    break;
+                case 'close':
+                    if (distance < closestDistance) {
+                        closestDistance = distance;
+                        targetEnemy = enemy;
+                    }
+                    break;
+                case 'far':
+                    if (distance > closestDistance) {
+                        closestDistance = distance;
+                        targetEnemy = enemy;
+                    }
                     break;
             }
-            this.damageCount = 0;
-            this.targetingType = 'first';
-            // this.intervalId = setInterval(() => this.shoot(), 1000 / this.fireRate);
-            // gameBoard.addEventListener('click', (event) => {
+        });
 
-            //     const rect = gameBoard.getBoundingClientRect();
-            //     let xSpacing = rect.width / cols;
-            //     let ySpacing = rect.height / rows;
-            //     const x = Math.floor((event.clientX - rect.left + window.scrollX) / xSpacing);
-            //     const y = Math.floor((event.clientY - rect.top + window.scrollY) / ySpacing);
+        return targetEnemy;
+    }
 
-            //     if (this.x === x && this.y === y) {
-            //         if (selectedTower === this) {
-            //             selectedTower = null;
-            //         } else {
-            //             selectedTower = this;
-            //         }
-            //     }
-            // });
-        }
+    shoot() {
+        const target = this.findTarget();
 
-        findTarget() {
-            let targetEnemy = null;
-            let enemyFarthestFromStart = 0;
-            let enemyHighestHealth = 0;
-            let closestDistance = Infinity;
-            enemies.forEach(enemy => {
+        if (!target) return;
 
-                const distance = Math.sqrt(Math.pow(enemy.x - this.x, 2) + Math.pow(enemy.y - this.y, 2));
-                const distanceFromStart = enemy.distanceFromStart;
-                const maxHealth = enemy.maxHealth;
+        const enemyInstance = target;
+        const distance = Math.sqrt(Math.pow(enemyInstance.x - this.x, 2) + Math.pow(enemyInstance.y - this.y, 2));
 
-                
-
-                switch (this.targetingType) {
-
-                    case 'first':
-                        if (distance <= this.range && distanceFromStart > enemyFarthestFromStart) {
-                            enemyFarthestFromStart = distanceFromStart;
-                            targetEnemy = enemy;
-                        }
-                        break;
-                    case 'last':
-                        if (distance <= this.range && distanceFromStart < enemyFarthestFromStart) {
-                            enemyFarthestFromStart = distanceFromStart;
-                            targetEnemy = enemy;
-                        }
-                        break;
-                    case 'strong':
-                        if (maxHealth > enemyHighestHealth) {
-                            enemyHighestHealth = maxHealth;
-                            targetEnemy = enemy;
-                        }
-                        break;
-                    case 'weak':
-                        if (maxHealth < enemyHighestHealth) {
-                            enemyHighestHealth = maxHealth;
-                            targetEnemy = enemy;
-                        }
-                        break;
-                    case 'close':
-                        if (distance < closestDistance) {
-                            closestDistance = distance;
-                            targetEnemy = enemy;
-                        }
-                        break;
-                    case 'far':
-                        if (distance > closestDistance) {
-                            closestDistance = distance;
-                            targetEnemy = enemy;
-                        }
-                        break;
-                }
-            });
-
-            return targetEnemy;
-        }
-
-        shoot() {
-            const target = this.findTarget();
-            
-            if (!target) return;
-            
-            const enemyInstance = target;
-            const distance = Math.sqrt(Math.pow(enemyInstance.x - this.x, 2) + Math.pow(enemyInstance.y - this.y, 2));
-
-            if (distance <= this.range) {
-                if (enemyInstance.health <= this.damage) {
-                    this.damageCount += enemyInstance.health;
-                } else {
-                    this.damageCount += this.damage;
-                }
-                enemyInstance.health -= this.damage;
-                if (enemyInstance.health <= 0) {
-                    const index = enemies.indexOf(enemyInstance);
-                    if (index > -1) {
-                        enemies.splice(index, 1);
-                    }
-                }
-                if (enemyInstance.healthBorder) {
-                    enemyInstance.updateHealthBorder();
-                }
-
-                // ctx.strokeStyle = 'yellow';
-                // ctx.lineWidth = 2;
-                // ctx.beginPath();
-                // ctx.moveTo(this.x * spacing + spacing / 2, this.y * spacing + spacing / 2);
-                // ctx.lineTo(enemyInstance.x * spacing + spacing / 2, enemyInstance.y * spacing + spacing / 2);
-                // ctx.stroke();
+        if (distance <= this.range) {
+            if (enemyInstance.health <= this.damage) {
+                this.damageCount += enemyInstance.health;
+            } else {
+                this.damageCount += this.damage;
             }
+            enemyInstance.health -= this.damage;
+            if (enemyInstance.health <= 0) {
+                const index = enemies[this.userIndex].indexOf(enemyInstance);
+                if (index > -1) {
+                    enemies[this.userIndex].splice(index, 1);
+                }
+            }
+            if (enemyInstance.healthBorder) {
+                enemyInstance.updateHealthBorder();
+            }
+
+            // ctx.strokeStyle = 'yellow';
+            // ctx.lineWidth = 2;
+            // ctx.beginPath();
+            // ctx.moveTo(this.x * spacing + spacing / 2, this.y * spacing + spacing / 2);
+            // ctx.lineTo(enemyInstance.x * spacing + spacing / 2, enemyInstance.y * spacing + spacing / 2);
+            // ctx.stroke();
         }
     }
+}
 
 //   GGGGGGG     RRRRRRRRR    IIIIIIIIII   DDDDDDDDD
 //  GGG   GGG    RRR    RRR      III       DDD    DDD 
@@ -341,24 +343,24 @@ function calculatePath(grid) {
 // WW  W  WW   AA   AA   VV   VV    EEEEE   SSSSS
 // WW  W  WW   AAAAAAA    VV VV     EE         SS
 //  WWWWWWW    AA   AA     VVV      EEEEE   SSSS
-function spawnWave(waveIndex) {
+function spawnWave(waveIndex, userIndex) {
     if (waveIndex >= waves.length) return;
 
     const wave = waves[waveIndex];
     wave.forEach(section => {
         setTimeout(() => {
-            spawnWaveSection(section);
+            spawnWaveSection(section, userIndex);
         }, section.wait);
     });
 }
 
-function spawnWaveSection(section) {
+function spawnWaveSection(section, userIndex) {
     let enemiesSpawned = 0;
     const spawnIntervalId = setInterval(() => {
         if (enemiesSpawned >= section.amount) {
             clearInterval(spawnIntervalId);
         } else {
-            new Enemy(section.enemyType, { healthBorder: true });
+            new Enemy(section.enemyType, userIndex, { healthBorder: true });
             enemiesSpawned++;
         }
     }, section.spawnInterval);
@@ -380,16 +382,18 @@ function connection(socket, io) {
         enemies.push([]);
         towers.push([]);
     }
-    
+
     const userIndex = users.findIndex(user => user.id === socket.id);
+    console.log(userIndex);
+
     const rows = 20;
     const cols = 32;
     let grid = initializeGrid(rows, cols);
     global.rows = rows;
     global.cols = cols;
     global.grid = calculatePath(grid);
-    let tower = new Tower('basic', {}, 10, 10);
-    towers.push(tower);
+    let tower = new Tower('basic', userIndex, {}, 10, 10);
+    towers[userIndex].push(tower);
     let updateUserGameData = setInterval(() => {
         enemies[userIndex].forEach(enemy => {
             enemy.move();
@@ -403,15 +407,15 @@ function connection(socket, io) {
     socket.on('towerPlace', placementCoords => {
         let x = Math.floor(placementCoords.x)
         let y = Math.floor(placementCoords.y)
-        if (!grid[y][x].hasPath && !towers.find(tower => tower.x === x && tower.y === y)) {
-            towers[userIndex].push(new Tower('basic', {}, y, x));
+        if (!grid[y][x].hasPath && !towers[userIndex].find(tower => tower.x === x && tower.y === y)) {
+            towers[userIndex].push(new Tower('basic', userIndex, {}, y, x));
         }
-        
-        
+
+
     })
 
     socket.on('startWave', waveIndex => {
-        spawnWave(waveIndex);
+        spawnWave(waveIndex, userIndex);
     });
 
     socket.on('disconnect', () => {

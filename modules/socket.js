@@ -74,7 +74,7 @@ class Enemy {
         switch (this.enemyType) {
             case 'normal':
                 this.health = 10;
-                this.maxHealth = 10;
+                this.maxHealth = this.health;
                 this.speed = 40;
                 this.color = 'white';
                 this.size = 45;
@@ -170,35 +170,20 @@ class Tower {
         this.x = x;
         this.y = y;
         this.userIndex = userIndex;
+        this.canShoot = true;
         switch (presetTower) {
             case 'basic':
                 this.size = 10
                 this.color = 'lightblue'
                 this.range = 4;
                 this.damage = 2;
-                this.fireRate = 3;
+                this.fireRate = 2;
                 this.name = 'Basic';
                 break;
         }
+        this.shootLocation = null;
         this.damageCount = 0;
         this.targetingType = 'first';
-        // this.intervalId = setInterval(() => this.shoot(), 1000 / this.fireRate);
-        // gameBoard.addEventListener('click', (event) => {
-
-        //     const rect = gameBoard.getBoundingClientRect();
-        //     let xSpacing = rect.width / cols;
-        //     let ySpacing = rect.height / rows;
-        //     const x = Math.floor((event.clientX - rect.left + window.scrollX) / xSpacing);
-        //     const y = Math.floor((event.clientY - rect.top + window.scrollY) / ySpacing);
-
-        //     if (this.x === x && this.y === y) {
-        //         if (selectedTower === this) {
-        //             selectedTower = null;
-        //         } else {
-        //             selectedTower = this;
-        //         }
-        //     }
-        // });
     }
 
     findTarget() {
@@ -259,6 +244,8 @@ class Tower {
     }
 
     shoot() {
+        if (!this.canShoot) return;
+
         const target = this.findTarget();
 
         if (!target) return;
@@ -267,6 +254,10 @@ class Tower {
         const distance = Math.sqrt(Math.pow(enemyInstance.x - this.x, 2) + Math.pow(enemyInstance.y - this.y, 2));
 
         if (distance <= this.range) {
+            this.shootLocation = { x: enemyInstance.x, y: enemyInstance.y };
+            setTimeout(() => {
+                this.shootLocation = null;
+            }, 1000 / this.fireRate);
             if (enemyInstance.health <= this.damage) {
                 this.damageCount += enemyInstance.health;
             } else {
@@ -282,13 +273,10 @@ class Tower {
             if (enemyInstance.healthBorder) {
                 enemyInstance.updateHealthBorder();
             }
-
-            // ctx.strokeStyle = 'yellow';
-            // ctx.lineWidth = 2;
-            // ctx.beginPath();
-            // ctx.moveTo(this.x * spacing + spacing / 2, this.y * spacing + spacing / 2);
-            // ctx.lineTo(enemyInstance.x * spacing + spacing / 2, enemyInstance.y * spacing + spacing / 2);
-            // ctx.stroke();
+            this.canShoot = false;
+            setTimeout(() => {
+                this.canShoot = true;
+            }, 1000 / this.fireRate);
         }
     }
 }
@@ -367,6 +355,29 @@ function spawnWaveSection(section, userIndex) {
 }
 
 
+//  GGGG    AAA    M   M  EEEEE   L       OOO     OOO    PPPP
+// G       A   A   MM MM  EE      L      O   O   O   O   P   P
+// G  GG   AAAAA   M M M  EEEE    L      O   O   O   O   PPPP
+// G   G   A   A   M   M  EE      L      O   O   O   O   P 
+//  GGG    A   A   M   M  EEEEE   LLLLL   OOO     OOO    P 
+var ticks = 0;
+
+let gameLoop = setInterval(() => {
+    ticks++;
+    enemies.forEach((userEnemies, userIndex) => {
+        userEnemies.forEach(enemy => {
+            enemy.move();
+        });
+        towers[userIndex].forEach(tower => {
+            const currentTime = ticks;
+            console.log(currentTime - tower.lastShotTime)
+            if (!tower.lastShotTime || currentTime - tower.lastShotTime >= 60 / tower.fireRate) {
+                tower.shoot();
+                tower.lastShotTime = currentTime;
+            }
+        });
+    });
+}, 1000 / 60);
 
 //  OOO    TTTTT   H   H    EEEEE    RRRR
 // O   O     T     H   H    EE       R   R
@@ -393,15 +404,18 @@ function connection(socket, io) {
     global.grid = calculatePath(grid);
     let tower = new Tower('basic', userIndex, {}, 10, 10);
     towers[userIndex].push(tower);
-    let updateUserGameData = setInterval(() => {
-        enemies[userIndex].forEach(enemy => {
-            enemy.move();
-        });
-        towers[userIndex].forEach(tower => {
-            tower.shoot(userIndex);
-        })
-        socket.emit('gameData', [{ grid, rows, cols }, enemies[userIndex], towers[userIndex]]);
-    }, 1000 / 60); // 60 FPS
+    // enemies[userIndex].forEach(enemy => {
+    //     enemy.move();
+    // });
+    // towers[userIndex].forEach(tower => {
+    //     tower.shoot();
+    //     // const currentTime = Date.now();
+    //     // if (!tower.lastShotTime || currentTime - tower.lastShotTime >= 1000 / tower.fireRate) {
+    //     //     tower.shoot();
+    //     //     tower.lastShotTime = currentTime;
+    //     // }
+    // })
+    // socket.emit('gameData', [{ grid, rows, cols }, enemies[userIndex], towers[userIndex]]);
 
     socket.on('towerPlace', placementCoords => {
         let x = Math.floor(placementCoords.x)

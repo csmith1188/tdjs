@@ -384,7 +384,6 @@ function connection(socket, io) {
     }
 
     const userIndex = users.findIndex(user => user.id === socket.id);
-    console.log(userIndex);
 
     const rows = 20;
     const cols = 32;
@@ -420,6 +419,7 @@ function connection(socket, io) {
 
     socket.on('disconnect', () => {
         console.log('A user disconnected,', socket.id);
+        clearInterval(updateUserGameData);
     });
 };
 

@@ -37,6 +37,16 @@
             height: calc(100vw / 2);
             z-index: 10;
         }
+
+        #programMenu {
+            position: absolute;
+            background-color: white;
+            top: calc(100vw / 2);
+            left: 0;
+            width: 100vw;
+            height: calc(100vw / 2);
+            z-index: 11;
+        }
     </style>
 </head>
 
@@ -45,6 +55,9 @@
         <canvas id="gameBoard"></canvas>
         <div id="gameShopMenu"></div>
     </div>
+    <div id="programMenu">
+        <textarea id="programBox" name="programBox" cols="30" rows="10"></textarea>
+        <button onclick="getProgram()"></button>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="gameclientside.js">

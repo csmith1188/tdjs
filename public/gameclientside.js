@@ -7,7 +7,8 @@ const socket = io();
         towerList = [
             1
         ];
-        getShopItems();
+        console.log()
+        getShopItems(programBox);
 
         function drawGrid(grid, rows, cols) {
             for (let i = 0; i < rows; i++) {
@@ -41,6 +42,10 @@ const socket = io();
             ctx.fillRect(x * spacing, y * spacing, spacing, spacing);
             ctx.strokeStyle = 'black';
             ctx.strokeRect(x * spacing, y * spacing, spacing, spacing);
+        }
+
+        function userProgram() {
+            
         }
 
         function getShopItems() {
@@ -81,10 +86,7 @@ const socket = io();
                         gameBoard.removeEventListener('click', handleClick)
                     };
 
-                    gameBoard.addEventListener('click', handleClick)
-
-                    // Example of removing the event listener
-                    // gameBoard.removeEventListener('click', handleClick);
+                    gameBoard.addEventListener('click', handleClick);
 
                     } else {
                         console.log("hey there mr guy")
@@ -92,6 +94,15 @@ const socket = io();
                 });
                 towerShop.appendChild(item);
             })
+        }
+
+        function getProgram() {
+            const program = document.getElementById('programBox').value;
+            try {
+                eval(program);
+            } catch (error) {
+                console.error(error);
+            }
         }
 
         socket.on('gameData', (data) => {

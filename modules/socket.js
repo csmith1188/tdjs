@@ -1,5 +1,5 @@
 
-
+const frameRate = 60;
 const pathPoint = [{ y: 2, x: 0 }, { y: 2, x: 8 }, { y: 12, x: 8 }, { y: 12, x: 16 }, { y: 2, x: 16 }, { y: 2, x: 24 }, { y: 18, x: 24 }, { y: 18, x: 31 }];
 enemies = []
 towers = []
@@ -336,9 +336,12 @@ function spawnWave(waveIndex, userIndex) {
 
     const wave = waves[waveIndex];
     wave.forEach(section => {
-        setTimeout(() => {
+        let wait = section.wait;
+        if (wait <= 0) {
             spawnWaveSection(section, userIndex);
-        }, section.wait);
+        } else {
+            wait--;
+        }
     });
 }
 
@@ -371,13 +374,13 @@ let gameLoop = setInterval(() => {
         towers[userIndex].forEach(tower => {
             const currentTime = ticks;
             console.log(currentTime - tower.lastShotTime)
-            if (!tower.lastShotTime || currentTime - tower.lastShotTime >= 60 / tower.fireRate) {
+            if (!tower.lastShotTime || currentTime - tower.lastShotTime >= frameRate / tower.fireRate) {
                 tower.shoot();
                 tower.lastShotTime = currentTime;
             }
         });
     });
-}, 1000 / 60);
+}, 1000 / frameRate);
 
 //  OOO    TTTTT   H   H    EEEEE    RRRR
 // O   O     T     H   H    EE       R   R

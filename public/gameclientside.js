@@ -13,7 +13,13 @@ function drawGrid(grid, rows, cols) {
     for (let i = 0; i < rows; i++) {
         for (let j = 0; j < cols; j++) {
             if (grid[i][j].hasPath) {
-                ctx.fillStyle = 'burlywood';
+                if (grid[i][j].isStart) {
+                    ctx.fillStyle = 'lightblue';
+                } else if (grid[i][j].isEnd) {
+                    ctx.fillStyle = 'lightcoral';
+                } else {
+                    ctx.fillStyle = 'burlywood';
+                }
             } else {
                 ctx.fillStyle = 'lightgreen';
             }
@@ -54,9 +60,8 @@ function drawTower(tower) {
         ctx.moveTo(tower.x * spacing + spacing / 2, tower.y * spacing + spacing / 2);
         ctx.lineTo(tower.shootLocation.x * spacing + spacing / 2, tower.shootLocation.y * spacing + spacing / 2);
         ctx.stroke();
-        console.log("Drawing line");
     } else {
-        console.log("Not drawing line");
+        return;
     }
 }
 

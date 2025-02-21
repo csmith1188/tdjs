@@ -1,52 +1,55 @@
 
 const frameRate = 60;
 const pathPoint = [{ y: 2, x: 0 }, { y: 2, x: 8 }, { y: 12, x: 8 }, { y: 12, x: 16 }, { y: 2, x: 16 }, { y: 2, x: 24 }, { y: 18, x: 24 }, { y: 18, x: 31 }];
-enemies = []
-towers = []
-users = []
+var enemies = []
+var towers = []
+var users = []
+var ticks = 0;
+var waveQueue = [];
+var sectionQueue = [];
 
 // use the format of { enemyType: '<enemy name>', amount: #, spawnInterval: #, wait: # } inside of a list inside the waves list to make a section of a wave
 waves = [
     [
-        { enemyType: 'normal', amount: 1, spawnInterval: 1000, wait: 0 }
+        { enemyType: 'normal', amount: 1, spawnInterval: 0, wait: 0 }
     ],
     [
-        { enemyType: 'normal', amount: 10, spawnInterval: 750, wait: 0 }
+        { enemyType: 'normal', amount: 10, spawnInterval: 60, wait: 0 }
     ],
     [
-        { enemyType: 'normal', amount: 5, spawnInterval: 1000, wait: 0 },
-        { enemyType: 'fast', amount: 3, spawnInterval: 500, wait: 5000 }
+        { enemyType: 'normal', amount: 5, spawnInterval: 60, wait: 0 },
+        { enemyType: 'fast', amount: 3, spawnInterval: 30, wait: 300 }
     ],
     [
-        { enemyType: 'normal', amount: 10, spawnInterval: 800, wait: 0 },
-        { enemyType: 'fast', amount: 5, spawnInterval: 400, wait: 5000 }
+        { enemyType: 'normal', amount: 10, spawnInterval: 48, wait: 0 },
+        { enemyType: 'fast', amount: 5, spawnInterval: 24, wait: 300 }
     ],
     [
-        { enemyType: 'normal', amount: 15, spawnInterval: 700, wait: 0 },
-        { enemyType: 'normal', amount: 10, spawnInterval: 500, wait: 5000 },
-        { enemyType: 'normal', amount: 5, spawnInterval: 300, wait: 10000 }
+        { enemyType: 'normal', amount: 15, spawnInterval: 42, wait: 0 },
+        { enemyType: 'normal', amount: 10, spawnInterval: 30, wait: 300 },
+        { enemyType: 'normal', amount: 5, spawnInterval: 18, wait: 600 }
     ],
     [
-        { enemyType: 'normal', amount: 10, spawnInterval: 800, wait: 0 },
-        { enemyType: 'fast', amount: 5, spawnInterval: 400, wait: 5000 },
-        { enemyType: 'normal', amount: 10, spawnInterval: 800, wait: 10000 }
+        { enemyType: 'normal', amount: 10, spawnInterval: 48, wait: 0 },
+        { enemyType: 'fast', amount: 5, spawnInterval: 24, wait: 300 },
+        { enemyType: 'normal', amount: 10, spawnInterval: 48, wait: 600 }
     ],
     [
-        { enemyType: 'normal', amount: 10, spawnInterval: 800, wait: 0 },
-        { enemyType: 'slow', amount: 5, spawnInterval: 1200, wait: 5000 }
+        { enemyType: 'normal', amount: 10, spawnInterval: 48, wait: 0 },
+        { enemyType: 'slow', amount: 5, spawnInterval: 72, wait: 300 }
     ],
     [
-        { enemyType: 'fast', amount: 10, spawnInterval: 500, wait: 0 },
-        { enemyType: 'slow', amount: 5, spawnInterval: 1000, wait: 5000 }
+        { enemyType: 'fast', amount: 10, spawnInterval: 30, wait: 0 },
+        { enemyType: 'slow', amount: 5, spawnInterval: 60, wait: 300 }
     ],
     [
-        { enemyType: 'normal', amount: 10, spawnInterval: 800, wait: 0 },
-        { enemyType: 'fast', amount: 5, spawnInterval: 400, wait: 5000 },
-        { enemyType: 'slow', amount: 3, spawnInterval: 1200, wait: 10000 }
+        { enemyType: 'normal', amount: 10, spawnInterval: 48, wait: 0 },
+        { enemyType: 'fast', amount: 5, spawnInterval: 24, wait: 300 },
+        { enemyType: 'slow', amount: 3, spawnInterval: 72, wait: 600 }
     ],
     [
-        { enemyType: 'normal', amount: 10, spawnInterval: 800, wait: 0 },
-        { enemyType: 'boss', amount: 1, spawnInterval: 0, wait: 8800 }
+        { enemyType: 'normal', amount: 10, spawnInterval: 48, wait: 0 },
+        { enemyType: 'boss', amount: 1, spawnInterval: 0, wait: 528 }
     ]
 
 ];
@@ -325,63 +328,6 @@ function calculatePath(grid) {
     return grid;
 }
 
-
-// WW     WW     AAA     VV   VV    EEEEE    SSSS
-// WW     WW    AAAAA    VV   VV    EE      SS
-// WW  W  WW   AA   AA   VV   VV    EEEEE   SSSSS
-// WW  W  WW   AAAAAAA    VV VV     EE         SS
-//  WWWWWWW    AA   AA     VVV      EEEEE   SSSS
-function spawnWave(waveIndex, userIndex) {
-    if (waveIndex >= waves.length) return;
-
-    const wave = waves[waveIndex];
-    wave.forEach(section => {
-        let wait = section.wait;
-        if (wait <= 0) {
-            spawnWaveSection(section, userIndex);
-        } else {
-            wait--;
-        }
-    });
-}
-
-function spawnWaveSection(section, userIndex) {
-    let enemiesSpawned = 0;
-    const spawnIntervalId = setInterval(() => {
-        if (enemiesSpawned >= section.amount) {
-            clearInterval(spawnIntervalId);
-        } else {
-            new Enemy(section.enemyType, userIndex, { healthBorder: true });
-            enemiesSpawned++;
-        }
-    }, section.spawnInterval);
-}
-
-
-//  GGGG    AAA    M   M  EEEEE   L       OOO     OOO    PPPP
-// G       A   A   MM MM  EE      L      O   O   O   O   P   P
-// G  GG   AAAAA   M M M  EEEE    L      O   O   O   O   PPPP
-// G   G   A   A   M   M  EE      L      O   O   O   O   P 
-//  GGG    A   A   M   M  EEEEE   LLLLL   OOO     OOO    P 
-var ticks = 0;
-
-let gameLoop = setInterval(() => {
-    ticks++;
-    enemies.forEach((userEnemies, userIndex) => {
-        userEnemies.forEach(enemy => {
-            enemy.move();
-        });
-        towers[userIndex].forEach(tower => {
-            const currentTime = ticks;
-            console.log(currentTime - tower.lastShotTime)
-            if (!tower.lastShotTime || currentTime - tower.lastShotTime >= frameRate / tower.fireRate) {
-                tower.shoot();
-                tower.lastShotTime = currentTime;
-            }
-        });
-    });
-}, 1000 / frameRate);
-
 //  OOO    TTTTT   H   H    EEEEE    RRRR
 // O   O     T     H   H    EE       R   R
 // O   O     T     HHHHH    EEEE     RRRR
@@ -395,10 +341,11 @@ function connection(socket, io) {
         users.push({ id: socket.id });
         enemies.push([]);
         towers.push([]);
+        waveQueue.push([]);
+        sectionQueue.push([]);
     }
 
     const userIndex = users.findIndex(user => user.id === socket.id);
-
     const rows = 20;
     const cols = 32;
     let grid = initializeGrid(rows, cols);
@@ -407,18 +354,68 @@ function connection(socket, io) {
     global.grid = calculatePath(grid);
     let tower = new Tower('basic', userIndex, {}, 10, 10);
     towers[userIndex].push(tower);
-    // enemies[userIndex].forEach(enemy => {
-    //     enemy.move();
-    // });
-    // towers[userIndex].forEach(tower => {
-    //     tower.shoot();
-    //     // const currentTime = Date.now();
-    //     // if (!tower.lastShotTime || currentTime - tower.lastShotTime >= 1000 / tower.fireRate) {
-    //     //     tower.shoot();
-    //     //     tower.lastShotTime = currentTime;
-    //     // }
-    // })
-    // socket.emit('gameData', [{ grid, rows, cols }, enemies[userIndex], towers[userIndex]]);
+    socket.emit('gameData', [{ grid, rows, cols }, enemies[userIndex], towers[userIndex]]);
+
+    let gameLoop = setInterval(() => {
+        ticks++;
+        // Ensures that the user is still connected
+        if (userIndex != -1) {
+            // Handles the movement of each enemy
+            enemies[userIndex].forEach((enemy) => {
+                enemy.move();
+            });
+            // Handles the shooting of each tower
+            towers[userIndex].forEach(tower => {
+                const currentTime = ticks;
+                if (!tower.lastShotTime || currentTime - tower.lastShotTime >= frameRate / tower.fireRate) {
+                    tower.shoot();
+                    tower.lastShotTime = currentTime;
+                }
+            });
+            // Handles the wave queue and sends the sections of the wave to the section queue
+            if (waveQueue[userIndex].length > 0) {
+                if (waveQueue[userIndex][0].wave.length > 0) {
+                    const request = waveQueue[userIndex][0];
+                    let currentSection = request.wave[0];
+                    const currentTime = ticks;
+                    if (currentTime - ticks >= currentSection.wait) {
+                        sectionQueue[userIndex].push({ section: currentSection, userIndex, timeAfterLastSpawn: 0 });
+                        request.wave.splice(0, 1);
+                        console.log(request.wave.length);
+                        if (request.wave.length > 0) {
+                            currentSection = request.wave[0];
+                        } else {
+                            console.log(waveQueue[userIndex]);
+                            waveQueue[userIndex].splice(0, 1);
+                            console.log(waveQueue[userIndex]);
+
+                            console.log('test');
+
+                        }
+                    } else {
+                        currentSection.wait -= 1;
+                    }
+                }
+            }
+            // Handles the section queue and spawns enemies from the queue
+            if (sectionQueue[userIndex].length > 0) {
+                const request = sectionQueue[userIndex][0];
+                let currentSection = request.section;
+                if (request.timeAfterLastSpawn >= currentSection.spawnInterval) {
+                    new Enemy(currentSection.enemyType, userIndex, { healthBorder: true });
+                    request.timeAfterLastSpawn = 0;
+                    request.section.amount--;
+                    if (request.section.amount <= 0) {
+                        sectionQueue[userIndex].splice(0, 1);
+                    }
+                } else {
+                    request.timeAfterLastSpawn++;
+                }
+            }
+        }
+        // Sends the game data to the client
+        socket.emit('gameData', [{ grid, rows, cols }, enemies[userIndex], towers[userIndex]]);
+    }, 1000 / frameRate);
 
     socket.on('towerPlace', placementCoords => {
         let x = Math.floor(placementCoords.x)
@@ -431,12 +428,11 @@ function connection(socket, io) {
     })
 
     socket.on('startWave', waveIndex => {
-        spawnWave(waveIndex, userIndex);
+        waveQueue[userIndex].push({ wave: waves[waveIndex], userIndex });
     });
 
     socket.on('disconnect', () => {
         console.log('A user disconnected,', socket.id);
-        clearInterval(updateUserGameData);
     });
 };
 

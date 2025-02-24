@@ -65,42 +65,43 @@ function drawTower(tower) {
     }
 }
 
-function getShopItems() {
-    console.log(towerList)
-    towerList.forEach(tower => {
-        const item = document.createElement('button');
-        item.name = 'basic'
-        item.style.width = "100px";
-        item.style.height = "100px";
-        item.style.backgroundColor = "white"
-        item.addEventListener('mouseover', function () {
-            item.style.backgroundColor = "gray";
-            item.style.cursor = "pointer";
-        });
-        item.addEventListener('mouseout', function () {
-            item.style.backgroundColor = "white";
-            item.style.cursor = "default";
-        });
-        item.addEventListener('click', function () {
-            console.log("Got Tower")
-            if (selectedBuyableTower == item.name) {
-                selectedBuyableTower = null
-            } else {
-                selectedBuyableTower = item.name
-            }
-            console.log(selectedBuyableTower)
-            // the if statement below is supposed to be for selecting a grid square
-            if (selectedBuyableTower != null) {
-                const handleClick = (event) => {
-                    const rect = gameBoard.getBoundingClientRect();
-                    const cellWidth = rect.width / 32;
-                    const cellHeight = rect.height / 20;
-                    const x = (event.clientX - (rect.left + window.scrollX)) / cellWidth;
-                    const y = (event.clientY - (rect.top + window.scrollY)) / cellHeight;
-                    console.log(rect, x, y);
-                    socket.emit('towerPlace', { x, y })
-                    gameBoard.removeEventListener('click', handleClick)
-                };
+        function getShopItems() {
+            console.log(towerList)
+            towerList.forEach(tower => {
+                const item = document.createElement('button');
+                item.name = 'basic'
+                item.style.width = "100px";
+                item.style.height = "100px";
+                item.style.backgroundColor = "white"
+                item.addEventListener('mouseover', function () {
+                    item.style.backgroundColor = "gray";
+                    item.style.cursor = "pointer";
+                });
+                item.addEventListener('mouseout', function () {
+                    item.style.backgroundColor = "white";
+                    item.style.cursor = "default";
+                });
+                item.addEventListener('click', function () {
+                    console.log("Got Tower")
+                    if (selectedBuyableTower == item.name) {
+                        selectedBuyableTower = null
+                    } else {
+                        selectedBuyableTower = item.name
+                    }
+                    console.log(selectedBuyableTower)
+                    // the if statement below is supposed to be for selecting a grid square
+                if  (selectedBuyableTower != null) {
+                    const handleClick = (event) => {
+                        const rect = gameBoard.getBoundingClientRect();
+                        const cellWidth = rect.width / 32;
+                        const cellHeight = rect.height / 20;
+                        const x = (event.clientX - (rect.left + window.scrollX))/cellWidth;
+                        const y = (event.clientY - (rect.top + window.scrollY))/cellHeight;
+                        console.log(rect, x, y);
+                        socket.emit('towerPlace', {x, y})
+                        selectedBuyableTower = null
+                        gameBoard.removeEventListener('click', handleClick)
+                    };
 
                 gameBoard.addEventListener('click', handleClick)
 

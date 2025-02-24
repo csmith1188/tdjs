@@ -20,10 +20,10 @@ function drawGrid(grid, rows, cols) {
                 } else if (grid[i][j].isEnd) {
                     ctx.fillStyle = 'lightcoral';
                 } else {
-                    ctx.fillStyle = 'burlywood';
+                    ctx.fillStyle = 'black';
                 }
             } else {
-                ctx.fillStyle = 'lightgreen';
+                ctx.fillStyle = 'darkgreen';
             }
             ctx.fillRect(j * spacing, i * spacing, spacing, spacing);
         }

@@ -1,13 +1,15 @@
 const socket = io();
-const spacing = 50;
-var selectedBuyableTower = null
-const gameBoard = document.getElementById('gameBoard');
-const ctx = gameBoard.getContext('2d');
-var towerShop = document.getElementById("gameShopMenu");
-towerList = [
-    1
-];
-getShopItems();
+        const spacing = 50;
+        var selectedBuyableTower = null
+        const gameBoard = document.getElementById('gameBoard');
+        const ctx = gameBoard.getContext('2d');
+        var towerShop = document.getElementById("gameShopMenu");
+        towerList = [
+            1
+        ];
+        console.log()
+        getShopItems(programBox);
+
 
 function drawGrid(grid, rows, cols) {
     for (let i = 0; i < rows; i++) {
@@ -65,6 +67,10 @@ function drawTower(tower) {
     }
 }
 
+        function userProgram() {
+            
+        }
+
         function getShopItems() {
             console.log(towerList)
             towerList.forEach(tower => {
@@ -103,10 +109,9 @@ function drawTower(tower) {
                         gameBoard.removeEventListener('click', handleClick)
                     };
 
-                gameBoard.addEventListener('click', handleClick)
 
-                // Example of removing the event listener
-                // gameBoard.removeEventListener('click', handleClick);
+                    gameBoard.addEventListener('click', handleClick);
+
 
             } else {
                 console.log("hey there mr guy")
@@ -116,12 +121,22 @@ function drawTower(tower) {
     })
 }
 
-socket.on('gameData', (data) => {
-    const grid = data[0].grid
-    const rows = data[0].rows
-    const cols = data[0].cols
-    const enemies = data[1]
-    const towers = data[2]
+        function getProgram() {
+            const program = document.getElementById('programBox').value;
+            try {
+                eval(program);
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        socket.on('gameData', (data) => {
+            const grid = data[0].grid
+            const rows = data[0].rows
+            const cols = data[0].cols
+            const enemies = data[1]
+            const towers = data[2]
+
 
     gameBoard.width = cols * spacing;
     gameBoard.height = rows * spacing;

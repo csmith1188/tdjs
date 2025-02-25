@@ -1,6 +1,7 @@
 const socket = io();
         const spacing = 50;
         var selectedBuyableTower = null
+        var selectedTower = null
         const gameBoard = document.getElementById('gameBoard');
         const ctx = gameBoard.getContext('2d');
         var towerShop = document.getElementById("gameShopMenu");
@@ -42,6 +43,22 @@ function drawEnemy(enemy) {
         ctx.stroke();
     }
 }
+
+
+function selectTower() {
+    const selectHandler = (event) => {
+        const rect = gameBoard.getBoundingClientRect();
+        const cellWidth = rect.width / 32;
+        const cellHeight = rect.height / 20;
+        const x = (event.clientX - (rect.left + window.scrollX))/cellWidth;
+        const y = (event.clientY - (rect.top + window.scrollY))/cellHeight;
+        console.log(rect, x, y);
+    }
+
+    gameBoard.addEventListener('click', selectHandler);
+}
+
+selectTower();
 
 function drawTower(tower) {
     const { x, y, color, size } = tower;

@@ -1,14 +1,14 @@
 const socket = io();
-        const spacing = 50;
-        var selectedBuyableTower = null
-        const gameBoard = document.getElementById('gameBoard');
-        const ctx = gameBoard.getContext('2d');
-        var towerShop = document.getElementById("gameShopMenu");
-        towerList = [
-            1
-        ];
-        console.log()
-        getShopItems(programBox);
+const spacing = 50;
+var selectedBuyableTower = null
+const gameBoard = document.getElementById('gameBoard');
+const ctx = gameBoard.getContext('2d');
+var towerShop = document.getElementById("gameShopMenu");
+towerList = [
+    'basic', 'sniper', 'machineGun'
+];
+console.log()
+getShopItems(programBox);
 
 
 function drawGrid(grid, rows, cols) {
@@ -54,7 +54,7 @@ function drawTower(tower) {
         const dx = tower.shootLocation.x - tower.x;
         const dy = tower.shootLocation.y - tower.y;
         const angle = Math.atan2(dy, dx);
-    
+
         // Draw the line
         ctx.strokeStyle = 'yellow';
         ctx.lineWidth = 2;
@@ -67,50 +67,52 @@ function drawTower(tower) {
     }
 }
 
-        function userProgram() {
-            
-        }
+function userProgram() {
 
-        function getShopItems() {
-            console.log(towerList)
-            towerList.forEach(tower => {
-                const item = document.createElement('button');
-                item.name = 'basic'
-                item.style.width = "100px";
-                item.style.height = "100px";
-                item.style.backgroundColor = "white"
-                item.addEventListener('mouseover', function () {
-                    item.style.backgroundColor = "gray";
-                    item.style.cursor = "pointer";
-                });
-                item.addEventListener('mouseout', function () {
-                    item.style.backgroundColor = "white";
-                    item.style.cursor = "default";
-                });
-                item.addEventListener('click', function () {
-                    console.log("Got Tower")
-                    if (selectedBuyableTower == item.name) {
-                        selectedBuyableTower = null
-                    } else {
-                        selectedBuyableTower = item.name
-                    }
-                    console.log(selectedBuyableTower)
-                    // the if statement below is supposed to be for selecting a grid square
-                if  (selectedBuyableTower != null) {
-                    const handleClick = (event) => {
-                        const rect = gameBoard.getBoundingClientRect();
-                        const cellWidth = rect.width / 32;
-                        const cellHeight = rect.height / 20;
-                        const x = (event.clientX - (rect.left + window.scrollX))/cellWidth;
-                        const y = (event.clientY - (rect.top + window.scrollY))/cellHeight;
-                        console.log(rect, x, y);
-                        socket.emit('towerPlace', {x, y})
-                        selectedBuyableTower = null
-                        gameBoard.removeEventListener('click', handleClick)
-                    };
+}
+
+function getShopItems() {
+    console.log(towerList)
+    towerList.forEach(tower => {
+        const item = document.createElement('button');
+        item.name = tower;
+        item.innerHTML = tower;
+        item.style.width = "100px";
+        item.style.height = "100px";
+        item.style.backgroundColor = "white"
+        item.addEventListener('mouseover', function () {
+            item.style.backgroundColor = "gray";
+            item.style.cursor = "pointer";
+        });
+        item.addEventListener('mouseout', function () {
+            item.style.backgroundColor = "white";
+            item.style.cursor = "default";
+        });
+        item.addEventListener('click', function () {
+            console.log("Got Tower")
+            if (selectedBuyableTower == item.name) {
+                selectedBuyableTower = null
+            } else {
+                selectedBuyableTower = item.name
+            }
+            console.log(selectedBuyableTower)
+            // the if statement below is supposed to be for selecting a grid square
+            if (selectedBuyableTower != null) {
+                const handleClick = (event) => {
+                    const rect = gameBoard.getBoundingClientRect();
+                    const cellWidth = rect.width / 32;
+                    const cellHeight = rect.height / 20;
+                    const x = (event.clientX - (rect.left + window.scrollX)) / cellWidth;
+                    const y = (event.clientY - (rect.top + window.scrollY)) / cellHeight;
+                    let tower = item.name;
+
+                    socket.emit('towerPlace', { x, y, tower });
+                    selectedBuyableTower = null
+                    gameBoard.removeEventListener('click', handleClick)
+                };
 
 
-                    gameBoard.addEventListener('click', handleClick);
+                gameBoard.addEventListener('click', handleClick);
 
 
             } else {
@@ -121,21 +123,19 @@ function drawTower(tower) {
     })
 }
 
-        function getProgram() {
-            const program = document.getElementById('programBox').value;
-            try {
-                eval(program);
-            } catch (error) {
-                console.error(error);
-            }
-        }
+function getProgram() {
+    const program = document.getElementById('programBox').value;
+    const tower = 0
+    socket.emit('userProgram', program);
+}
 
-        socket.on('gameData', (data) => {
-            const grid = data[0].grid
-            const rows = data[0].rows
-            const cols = data[0].cols
-            const enemies = data[1]
-            const towers = data[2]
+socket.on('gameData', (data) => {
+    
+    const grid = data[0].grid
+    const rows = data[0].rows
+    const cols = data[0].cols
+    const enemies = data[1]
+    const towers = data[2]
 
 
     gameBoard.width = cols * spacing;

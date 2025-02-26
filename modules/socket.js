@@ -206,7 +206,7 @@ class Tower {
     }
 
     findTarget() {
-        
+
         this.getEnemies = () => {
             return enemies[this.userIndex];
         }
@@ -222,43 +222,35 @@ class Tower {
         } catch (error) {
             console.log(error);
         }
-        // this.targetEnemy = null;
-        // let enemyFarthestFromStart = 0
         // this.getEnemies().forEach(enemy => {
-        //     let distance = this.getDistance(enemy)
-
-        //     if (distance <= this.range && this.getDistanceFromStart(enemy) > enemyFarthestFromStart) {
-        //         enemyFarthestFromStart = this.getDistanceFromStart(enemy)
-        //         this.targetEnemy = enemy;
-        //     }
+        //     this.shoot(enemy);
         // });
+
     };
 
-    shoot(userCode) {
-        const target = this.targetEnemy;
-
-        if (!target) return;
-
+    shoot(target) {
         const enemyInstance = target;
-        const distance = Math.sqrt(Math.pow(enemyInstance.x - this.x, 2) + Math.pow(enemyInstance.y - this.y, 2));
+        console.log(enemyInstance);
 
-        if (distance <= this.range) {
-            this.shootLocation = { x: enemyInstance.x, y: enemyInstance.y };
-            if (enemyInstance.health <= this.damage) {
-                this.damageCount += enemyInstance.health;
-            } else {
-                this.damageCount += this.damage;
+        if (!enemyInstance) {
+            this.shootLocation = null;
+            return;
+        }
+        this.shootLocation = { x: enemyInstance.x, y: enemyInstance.y };
+        if (enemyInstance.health <= this.damage) {
+            this.damageCount += enemyInstance.health;
+        } else {
+            this.damageCount += this.damage;
+        }
+        enemyInstance.health -= this.damage;
+        if (enemyInstance.health <= 0) {
+            const index = enemies[this.userIndex].indexOf(enemyInstance);
+            if (index > -1) {
+                enemies[this.userIndex].splice(index, 1);
             }
-            enemyInstance.health -= this.damage;
-            if (enemyInstance.health <= 0) {
-                const index = enemies[this.userIndex].indexOf(enemyInstance);
-                if (index > -1) {
-                    enemies[this.userIndex].splice(index, 1);
-                }
-            }
-            if (enemyInstance.healthBorder) {
-                enemyInstance.updateHealthBorder();
-            }
+        }
+        if (enemyInstance.healthBorder) {
+            enemyInstance.updateHealthBorder();
         }
     }
 }
@@ -391,11 +383,8 @@ let gameLoop = setInterval(() => {
                     tower.shootLocation = null;
                 }
                 if (!tower.lastShotTime || currentTime - tower.lastShotTime >= frameRate / tower.fireRate) {
+                    tower.lastShotTime = currentTime;
                     tower.findTarget();
-                    if (tower.targetEnemy != null) {
-                        tower.shoot();
-                        tower.lastShotTime = currentTime;
-                    }
                 }
             });
             // Handles the wave queue and sends the sections of the wave to the section queue

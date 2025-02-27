@@ -425,6 +425,16 @@ function connection(socket, io) {
         }
 
 
+    })  
+
+    socket.on('towerSelect', (towerSelect) => {
+        console.log(towerSelect.x, towerSelect.y, )
+        let x = towerSelect.x
+        let y = towerSelect.y
+        if (towers[userIndex].find(tower => tower.x === x && tower.y === y)) {
+            console.log('Tower found')
+            socket.emit('towerSelected', towers[userIndex].find(tower => tower.x === x && tower.y === y))
+        }
     })
 
     socket.on('startWave', waveIndex => {

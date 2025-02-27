@@ -177,13 +177,21 @@ socket.on('towerSelected', (data) => {
     const towerY = data.y;
     console.log(towerX, towerY);
     let towerMenu = document.getElementById('towerMenu');
+    let programMenu = document.getElementById('programBox');
 
     if (selectedTower == null) {
         towerMenu.style.display = 'block';
-        selectedTower = true
-    } else if (selectedTower == true) {
+        selectedTower = data;
+        if (selectedTower.userCode != null) {
+            programMenu.value = selectedTower.userCode;
+        } else {
+            programMenu.value = '';
+        }
+
+    } else {
         towerMenu.style.display = 'none';
         selectedTower = null
+
     }
     
     

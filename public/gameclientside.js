@@ -1,12 +1,16 @@
 const socket = io();
 const spacing = 50;
 var selectedBuyableTower = null
+
 var selectedTower = null
+
 const gameBoard = document.getElementById('gameBoard');
 const ctx = gameBoard.getContext('2d');
 var towerShop = document.getElementById("gameShopMenu");
 towerList = [
-    1
+
+    'basic', 'sniper', 'machineGun'
+
 ];
 console.log()
 getShopItems(programBox);
@@ -21,10 +25,10 @@ function drawGrid(grid, rows, cols) {
                 } else if (grid[i][j].isEnd) {
                     ctx.fillStyle = 'lightcoral';
                 } else {
-                    ctx.fillStyle = 'burlywood';
+                    ctx.fillStyle = 'black';
                 }
             } else {
-                ctx.fillStyle = 'lightgreen';
+                ctx.fillStyle = 'darkgreen';
             }
             ctx.fillRect(j * spacing, i * spacing, spacing, spacing);
         }
@@ -88,6 +92,7 @@ function drawTower(tower) {
 
 
 
+
 function getShopItems() {
     console.log(towerList)
     towerList.forEach(tower => {
@@ -127,6 +132,7 @@ function getShopItems() {
                 };
 
 
+
                 gameBoard.addEventListener('click', handleClick);
 
 
@@ -140,11 +146,8 @@ function getShopItems() {
 
 function getProgram() {
     const program = document.getElementById('programBox').value;
-    try {
-        eval(program);
-    } catch (error) {
-        console.error(error);
-    }
+    const tower = 0
+    socket.emit('userProgram', program);
 }
 
 socket.on('gameData', (data) => {

@@ -43,6 +43,8 @@ app.get('/chat', routes.getchat);
 
 app.get('/game', routes.getgame);
 
+app.get('/maps', routes.getMaps);
+
 io.on('connection', (socket) => sockets.connection(socket, io));
 
 app.use(express.static(path.join(__dirname, 'public')));

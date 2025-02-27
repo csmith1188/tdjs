@@ -428,6 +428,26 @@ let gameLoop = setInterval(() => {
         // Sends the game data to the client
         socket.emit('gameData', [{ grid, rows, cols }, enemies[userIndex], towers[userIndex]]);
 
+
+    })  
+
+    socket.on('towerSelect', (towerSelect) => {
+        console.log(towerSelect.x, towerSelect.y, )
+        let x = towerSelect.x
+        let y = towerSelect.y
+        if (towers[userIndex].find(tower => tower.x === x && tower.y === y)) {
+            console.log('Tower found')
+            socket.emit('towerSelected', towers[userIndex].find(tower => tower.x === x && tower.y === y))
+        }
+    })
+
+    socket.on('startWave', waveIndex => {
+        waveQueue[userIndex].push({ wave: waves[waveIndex], userIndex });
+    });
+
+    socket.on('disconnect', () => {
+        console.log('A user disconnected,', socket.id);
+
     });
 }, 1000 / frameRate);
 

@@ -20,14 +20,17 @@
             const Username = document.createElement('h1');
             Username.textContent = `Welcome ${user}!`;
             document.body.appendChild(Username);
+
             const chatLink = document.createElement('a');
             chatLink.href = '/chat';
             chatLink.textContent = 'Chat';
             document.body.appendChild(chatLink);
-            const gameLink = document.createElement('a');
-            gameLink.href = '/game';
-            gameLink.textContent = 'Play Game';
-            document.body.appendChild(gameLink);
+
+            const mapsLink = document.createElement('a');
+            mapsLink.href = '/maps';
+            mapsLink.textContent = 'Maps';
+            document.body.appendChild(mapsLink);
+            
         } else {
             const Guest = document.createElement('h1');
             Guest.textContent = 'Welcome! Please login to play';

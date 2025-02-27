@@ -97,7 +97,8 @@ function getShopItems() {
     console.log(towerList)
     towerList.forEach(tower => {
         const item = document.createElement('button');
-        item.name = 'basic'
+        item.name = tower;
+        item.innerHTML = tower;
         item.style.width = "100px";
         item.style.height = "100px";
         item.style.backgroundColor = "white"
@@ -125,8 +126,9 @@ function getShopItems() {
                     const cellHeight = rect.height / 20;
                     const x = (event.clientX - (rect.left + window.scrollX)) / cellWidth;
                     const y = (event.clientY - (rect.top + window.scrollY)) / cellHeight;
-                    console.log(rect, x, y);
-                    socket.emit('towerPlace', { x, y })
+                    let tower = item.name;
+
+                    socket.emit('towerPlace', { x, y, tower });
                     selectedBuyableTower = null
                     gameBoard.removeEventListener('click', handleClick)
                 };

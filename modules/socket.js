@@ -340,6 +340,15 @@ function connection(socket, io) {
 
     })
 
+    socket.on('towerSelect', (towerSelect) => {
+        console.log(towerSelect.x, towerSelect.y, )
+        let x = towerSelect.x
+        let y = towerSelect.y
+        if (towers[userIndex].find(tower => tower.x === x && tower.y === y)) {
+            console.log('Tower found')
+            socket.emit('towerSelected', towers[userIndex].find(tower => tower.x === x && tower.y === y))
+        }
+    })
     socket.on('userProgram', (program) => {
 
         if (!program.includes('console.log')) {
@@ -348,6 +357,7 @@ function connection(socket, io) {
             console.log('Program contains statements that will not be executed.');
         }
     });
+
 
     socket.on('startWave', waveIndex => {
         if (waveIndex || waveIndex === 0) {
@@ -431,24 +441,6 @@ let gameLoop = setInterval(() => {
 
     })  
 
-    socket.on('towerSelect', (towerSelect) => {
-        console.log(towerSelect.x, towerSelect.y, )
-        let x = towerSelect.x
-        let y = towerSelect.y
-        if (towers[userIndex].find(tower => tower.x === x && tower.y === y)) {
-            console.log('Tower found')
-            socket.emit('towerSelected', towers[userIndex].find(tower => tower.x === x && tower.y === y))
-        }
-    })
-
-    socket.on('startWave', waveIndex => {
-        waveQueue[userIndex].push({ wave: waves[waveIndex], userIndex });
-    });
-
-    socket.on('disconnect', () => {
-        console.log('A user disconnected,', socket.id);
-
-    });
 }, 1000 / frameRate);
 
 module.exports = {

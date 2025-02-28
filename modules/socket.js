@@ -172,6 +172,7 @@ class Tower {
     constructor(presetTower, userIndex, options, y, x, range, damage, fireRate, targetingType, projectileType) {
         this.x = x;
         this.y = y;
+        this.index = towers[userIndex].length;
         this.userIndex = userIndex;
         this.userCode = null;
         switch (presetTower) {
@@ -334,7 +335,6 @@ function connection(socket, io) {
         let y = Math.floor(placementInformation.y)
         if (!grid[y][x].hasPath && !towers[userIndex].find(tower => tower.x === x && tower.y === y)) {
             towers[userIndex].push(new Tower(placementInformation.tower, userIndex, {}, y, x));
-
         }
 
 
@@ -346,13 +346,12 @@ function connection(socket, io) {
         let y = towerSelect.y
         if (towers[userIndex].find(tower => tower.x === x && tower.y === y)) {
             console.log('Tower found')
-            socket.emit('towerSelected', towers[userIndex].find(tower => tower.x === x && tower.y === y))
+            socket.emit('towerSelected', towers[userIndex].find(tower => tower.x === x && tower.y === y));
         }
     })
-    socket.on('userProgram', (program) => {
-
+    socket.on('userProgram', (program, tower) => {
         if (!program.includes('console.log')) {
-            towers[userIndex][0].userCode = program;
+            towers[userIndex][tower].userCode = program;
         } else {
             console.log('Program contains statements that will not be executed.');
         }

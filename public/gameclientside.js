@@ -148,7 +148,7 @@ function getProgram() {
     const programBox = document.getElementById('programBox');
     console.log(programBox.towerID);
     
-    socket.emit('userProgram', programBox.value, selectedTower.id);
+    socket.emit('userProgram', programBox.value, selectedTower.index);
 }
 
 socket.on('gameData', (data) => {

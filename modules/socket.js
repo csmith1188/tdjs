@@ -1,12 +1,8 @@
 
 const frameRate = 60;
 const pathPoint = [{ y: 2, x: 0 }, { y: 2, x: 8 }, { y: 12, x: 8 }, { y: 12, x: 16 }, { y: 2, x: 16 }, { y: 2, x: 24 }, { y: 18, x: 24 }, { y: 18, x: 31 }];
-var enemies = []
-var towers = []
 var users = []
 var ticks = 0;
-var waveQueue = [];
-var sectionQueue = [];
 
 // use the format of { enemyType: '<enemy name>', amount: #, spawnInterval: #, wait: # } inside of a list inside the waves list to make a section of a wave
 waves = [
@@ -69,7 +65,7 @@ class Enemy {
         this.healthBorder = options.healthBorder || false;
         this.distanceFromStart = 0
         this.updateStats();
-        enemies[this.userIndex].push(this);
+        users[this.userIndex].enemies.push(this);
         this.updatePosition(this.userIndex);
     }
 
@@ -116,10 +112,10 @@ class Enemy {
     }
 
     updatePosition() {
-        const enemyIndex = enemies[this.userIndex].findIndex(e => e === this);
+        const enemyIndex = users[this.userIndex].enemies.findIndex(e => e === this);
         this.distanceFromStart++
         if (enemyIndex !== -1) {
-            enemies[this.userIndex][enemyIndex] = this;
+            users[this.userIndex].enemies[enemyIndex] = this;
         }
 
     }
@@ -132,7 +128,7 @@ class Enemy {
                 this.nextX = pathPoint[currentIndex + 1].x;
                 this.nextY = pathPoint[currentIndex + 1].y;
             } else {
-                enemies[this.userIndex].splice(enemies[this.userIndex].indexOf(this), 1)
+                users[this.userIndex].enemies.splice(users[this.userIndex].enemies.indexOf(this), 1)
             }
         }
 
@@ -172,7 +168,7 @@ class Tower {
     constructor(presetTower, userIndex, options, y, x, range, damage, fireRate, targetingType, projectileType) {
         this.x = x;
         this.y = y;
-        this.index = towers[userIndex].length;
+        this.index = users[userIndex].towers.length;
         this.userIndex = userIndex;
         this.userCode = null;
         switch (presetTower) {
@@ -209,7 +205,7 @@ class Tower {
     findTarget() {
 
         this.getEnemies = () => {
-            return enemies[this.userIndex];
+            return users[this.userIndex].enemies;
         }
         this.getDistance = (enemy) => {
             return Math.sqrt(Math.pow(enemy.x - this.x, 2) + Math.pow(enemy.y - this.y, 2));
@@ -221,7 +217,8 @@ class Tower {
             eval(this.userCode);
 
         } catch (error) {
-            console.log(error);
+            console.log("Error in the user's code");
+            
         }
         // this.getEnemies().forEach(enemy => {
         //     this.shoot(enemy);
@@ -245,9 +242,9 @@ class Tower {
         }
         enemyInstance.health -= this.damage;
         if (enemyInstance.health <= 0) {
-            const index = enemies[this.userIndex].indexOf(enemyInstance);
+            const index = users[this.userIndex].enemies.indexOf(enemyInstance);
             if (index > -1) {
-                enemies[this.userIndex].splice(index, 1);
+                users[this.userIndex].enemies.splice(index, 1);
             }
         }
         if (enemyInstance.healthBorder) {
@@ -310,11 +307,7 @@ function connection(socket, io) {
     socket.id = socket.request.session.user;
     console.log('A user connected,', socket.id);
     if (!users.find(user => user.id === socket.id)) {
-        users.push({ id: socket.id, userIndex: 'temp', socket: 'temp', userCode: null });
-        enemies.push([]);
-        towers.push([]);
-        waveQueue.push([]);
-        sectionQueue.push([]);
+        users.push({ id: socket.id, userIndex: 'temp', socket: 'temp', enemies: [], towers: [], waveQueue: [], sectionQueue: [] });
     }
 
     const userIndex = users.findIndex(user => user.id === socket.id);
@@ -327,14 +320,14 @@ function connection(socket, io) {
     global.cols = cols;
     global.grid = calculatePath(grid);
     let tower = new Tower('basic', userIndex, {}, 10, 10);
-    towers[userIndex].push(tower);
-    socket.emit('gameData', [{ grid, rows, cols }, enemies[userIndex], towers[userIndex]]);
+    users[userIndex].towers.push(tower);
+    socket.emit('gameData', [{ grid, rows, cols }, users[userIndex].enemies, users[userIndex].towers]);
 
     socket.on('towerPlace', placementInformation => {
         let x = Math.floor(placementInformation.x)
         let y = Math.floor(placementInformation.y)
-        if (!grid[y][x].hasPath && !towers[userIndex].find(tower => tower.x === x && tower.y === y)) {
-            towers[userIndex].push(new Tower(placementInformation.tower, userIndex, {}, y, x));
+        if (!grid[y][x].hasPath && !users[userIndex].towers.find(tower => tower.x === x && tower.y === y)) {
+            users[userIndex].towers.push(new Tower(placementInformation.tower, userIndex, {}, y, x));
         }
 
 
@@ -344,14 +337,22 @@ function connection(socket, io) {
         console.log(towerSelect.x, towerSelect.y, )
         let x = towerSelect.x
         let y = towerSelect.y
-        if (towers[userIndex].find(tower => tower.x === x && tower.y === y)) {
+        if (users[userIndex].towers.find(tower => tower.x === x && tower.y === y)) {
             console.log('Tower found')
-            socket.emit('towerSelected', towers[userIndex].find(tower => tower.x === x && tower.y === y));
+            socket.emit('towerSelected', users[userIndex].towers.find(tower => tower.x === x && tower.y === y));
         }
     })
     socket.on('userProgram', (program, tower) => {
-        if (!program.includes('console.log')) {
-            towers[userIndex][tower].userCode = program;
+        const forbiddenStatements = [
+            'console.log', 'eval', 'require', 'import', 'fetch', 'XMLHttpRequest', 'console',
+            'Function', 'setTimeout', 'setInterval', 'process', 'child_process', 'throw', 'error', 'Error',
+            'fs', 'global', 'Buffer', 'document', 'window', 'localStorage', 'sessionStorage', 'socket', 'io'
+        ];
+    
+        const containsForbiddenStatements = forbiddenStatements.some(statement => program.includes(statement));
+    
+        if (!containsForbiddenStatements) {
+            users[userIndex].towers[tower].userCode = program;
         } else {
             console.log('Program contains statements that will not be executed.');
         }
@@ -361,12 +362,12 @@ function connection(socket, io) {
     socket.on('startWave', waveIndex => {
         if (waveIndex || waveIndex === 0) {
             const waveCopy = JSON.parse(JSON.stringify(waves[waveIndex]));
-            waveQueue[userIndex].push({ wave: waveCopy, userIndex });
+            users[userIndex].waveQueue.push({ wave: waveCopy, userIndex });
         }
     });
 
     socket.on('spawnEnemies', (enemyType, amount, spawnInterval, wait) => {
-        sectionQueue[userIndex].push({ section: { enemyType, amount, spawnInterval, wait }, userIndex, timeAfterLastSpawn: 0 });
+        users[userIndex].sectionQueue.push({ section: { enemyType, amount, spawnInterval, wait }, userIndex, timeAfterLastSpawn: 0 });
     });
 
     socket.on('disconnect', () => {
@@ -382,11 +383,11 @@ let gameLoop = setInterval(() => {
         // Ensures that the user is still connected
         if (userIndex != -1) {
             // Handles the movement of each enemy
-            enemies[userIndex].forEach((enemy) => {
+            user.enemies.forEach((enemy) => {
                 enemy.move();
             });
             // Handles the shooting of each tower
-            towers[userIndex].forEach(tower => {
+            user.towers.forEach(tower => {
                 const currentTime = ticks;
                 if (tower.shootLocation && currentTime - tower.lastShotTime >= 5) {
                     tower.shootLocation = null;
@@ -397,9 +398,9 @@ let gameLoop = setInterval(() => {
                 }
             });
             // Handles the wave queue and sends the sections of the wave to the section queue
-            if (waveQueue[userIndex].length > 0) {
+            if (user.waveQueue.length > 0) {
                 if (waveQueue[userIndex][0].wave.length > 0) {
-                    const request = waveQueue[userIndex][0];
+                    const request = users[userIndex].waveQueue[0];
                     let currentSection = request.wave[0];
                     const currentTime = ticks;
                     if (currentTime - ticks >= currentSection.wait) {
@@ -408,7 +409,7 @@ let gameLoop = setInterval(() => {
                         if (request.wave.length > 0) {
                             currentSection = request.wave[0];
                         } else {
-                            waveQueue[userIndex].splice(0, 1);
+                            usera[userIndex].waveQueue.splice(0, 1);
                         }
 
                     } else {
@@ -419,15 +420,15 @@ let gameLoop = setInterval(() => {
                 }
             }
             // Handles the section queue and spawns enemies from the queue
-            if (sectionQueue[userIndex].length > 0) {
-                const request = sectionQueue[userIndex][0];
+            if (user.sectionQueue.length > 0) {
+                const request = users[userIndex].sectionQueue[0];
                 let currentSection = request.section;
                 if (request.timeAfterLastSpawn >= currentSection.spawnInterval) {
                     new Enemy(currentSection.enemyType, userIndex, { healthBorder: true });
                     request.timeAfterLastSpawn = 0;
                     request.section.amount--;
                     if (request.section.amount <= 0) {
-                        sectionQueue[userIndex].splice(0, 1);
+                        users[userIndex].sectionQueue.splice(0, 1);
                     }
                 } else {
                     request.timeAfterLastSpawn++;
@@ -435,7 +436,7 @@ let gameLoop = setInterval(() => {
             }
         }
         // Sends the game data to the client
-        socket.emit('gameData', [{ grid, rows, cols }, enemies[userIndex], towers[userIndex]]);
+        socket.emit('gameData', [{ grid, rows, cols }, user.enemies, user.towers]);
 
 
     })  

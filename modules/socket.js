@@ -171,6 +171,7 @@ class Tower {
         this.index = users[userIndex].towers.length;
         this.userIndex = userIndex;
         this.userCode = null;
+        this.canShoot = true;
         switch (presetTower) {
             case 'basic':
                 this.size = 10
@@ -207,7 +208,7 @@ class Tower {
         this.getEnemies = () => {
             return users[this.userIndex].enemies;
         }
-        this.getDistance = (enemy) => {
+        this.getDistance = (enemy) => {     
             return Math.sqrt(Math.pow(enemy.x - this.x, 2) + Math.pow(enemy.y - this.y, 2));
         }
         this.getDistanceFromStart = (enemy) => {
@@ -217,7 +218,7 @@ class Tower {
             eval(this.userCode);
 
         } catch (error) {
-            console.log("Error in the user's code");
+            console.log("Error in the user's code," + error);
             
         }
         // this.getEnemies().forEach(enemy => {
@@ -228,12 +229,12 @@ class Tower {
 
     shoot(target) {
         const enemyInstance = target;
-        console.log(enemyInstance);
 
         if (!enemyInstance) {
             this.shootLocation = null;
             return;
         }
+        this.canShoot = false;
         this.shootLocation = { x: enemyInstance.x, y: enemyInstance.y };
         if (enemyInstance.health <= this.damage) {
             this.damageCount += enemyInstance.health;
@@ -334,27 +335,26 @@ function connection(socket, io) {
     })
 
     socket.on('towerSelect', (towerSelect) => {
-        console.log(towerSelect.x, towerSelect.y, )
         let x = towerSelect.x
         let y = towerSelect.y
         if (users[userIndex].towers.find(tower => tower.x === x && tower.y === y)) {
-            console.log('Tower found')
             socket.emit('towerSelected', users[userIndex].towers.find(tower => tower.x === x && tower.y === y));
         }
     })
     socket.on('userProgram', (program, tower) => {
-        const forbiddenStatements = [
-            'console.log', 'eval', 'require', 'import', 'fetch', 'XMLHttpRequest', 'console',
-            'Function', 'setTimeout', 'setInterval', 'process', 'child_process', 'throw', 'error', 'Error',
-            'fs', 'global', 'Buffer', 'document', 'window', 'localStorage', 'sessionStorage', 'socket', 'io'
+        const allowedStatements = [
+            'this.getEnemies()', 'this.getDistance()', 'this.getDistanceFromStart()', 'this.shoot()'
         ];
-    
-        const containsForbiddenStatements = forbiddenStatements.some(statement => program.includes(statement));
-    
-        if (!containsForbiddenStatements) {
+
+        const containsOnlyAllowedStatements = program.split(';').every(statement => 
+                    allowedStatements.some(allowed => statement.trim().includes(allowed))
+                );
+
+        if (containsOnlyAllowedStatements) {
             users[userIndex].towers[tower].userCode = program;
         } else {
-            console.log('Program contains statements that will not be executed.');
+            console.log('Program contains statements that are not allowed.');
+            console.log('Disallowed statement found in user program:', program);
         }
     });
 
@@ -394,8 +394,9 @@ let gameLoop = setInterval(() => {
                 }
                 if (!tower.lastShotTime || currentTime - tower.lastShotTime >= frameRate / tower.fireRate) {
                     tower.lastShotTime = currentTime;
-                    tower.findTarget();
+                    tower.canShoot = true;
                 }
+                tower.findTarget();
             });
             // Handles the wave queue and sends the sections of the wave to the section queue
             if (user.waveQueue.length > 0) {

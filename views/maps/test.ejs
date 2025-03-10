@@ -50,6 +50,36 @@
             max-width: 50px;
         }
 
+        #healthAmount {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5vw;
+            background-color: white;
+            z-index: 11;
+        }
+
+        #towerDamage {
+            position: absolute;
+            top: 5vw;
+            left: 0;
+            width: 100%;
+            height: 5vw;
+            background-color: white;
+            z-index: 11;
+        }
+
+        #towerRange {
+            position: absolute;
+            top: 10vw;
+            left: 0;
+            width: 100%;
+            height: 5vw;
+            background-color: white;
+            z-index: 11;
+        }
+
         #towerMenu {
             position: absolute;
             background-color: white;
@@ -70,8 +100,21 @@
     <div id="mainPage">
         <canvas id="gameBoard"></canvas>
         <div id="gameShopMenu"></div>
+
+        
         <div id="towerMenu">
-            <button onclick="console.log('test')"></button>
+            <div id="healthAmount">
+                Your Health: <span id="health">100</span>
+            </div>
+
+            <div id="towerDamage">
+                Tower Damage: <span id="damage">N/A</span>
+            </div>
+
+            <div id="towerRange">
+                Tower Range: <span id="range">N/A</span>
+            </div>
+            
             <div id="programMenu">
                 <textarea id="programBox" name="programBox" cols="22" rows="10" style="resize: none;"></textarea>
                 <button onclick="getProgram()"></button>

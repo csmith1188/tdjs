@@ -12,7 +12,6 @@ towerList = [
     'basic', 'sniper', 'machineGun'
 
 ];
-console.log()
 getShopItems(programBox);
 
 
@@ -92,7 +91,6 @@ function drawTower(tower) {
 
 
 function getShopItems() {
-    console.log(towerList)
     towerList.forEach(tower => {
         const item = document.createElement('button');
         item.name = tower;
@@ -109,13 +107,11 @@ function getShopItems() {
             item.style.cursor = "default";
         });
         item.addEventListener('click', function () {
-            console.log("Got Tower")
             if (selectedBuyableTower == item.name) {
                 selectedBuyableTower = null
             } else {
                 selectedBuyableTower = item.name
             }
-            console.log(selectedBuyableTower)
             // the if statement below is supposed to be for selecting a grid square
             if (selectedBuyableTower != null) {
                 const handleClick = (event) => {
@@ -136,8 +132,6 @@ function getShopItems() {
                 gameBoard.addEventListener('click', handleClick);
 
 
-            } else {
-                console.log("hey there mr guy")
             }
         });
         towerShop.appendChild(item);
@@ -146,8 +140,6 @@ function getShopItems() {
 
 function getProgram() {
     const programBox = document.getElementById('programBox');
-    console.log(programBox.towerID);
-    
     socket.emit('userProgram', programBox.value, selectedTower.index);
 }
 
@@ -174,9 +166,6 @@ socket.on('towerSelected', (data) => {
     const towerY = data.y;
     let towerMenu = document.getElementById('towerMenu');
     let programMenu = document.getElementById('programBox');
-    console.log(data);
-    
-
     if (selectedTower == null) {
         towerMenu.style.display = 'block';
         selectedTower = data;

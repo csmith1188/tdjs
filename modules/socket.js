@@ -400,24 +400,24 @@ let gameLoop = setInterval(() => {
             });
             // Handles the wave queue and sends the sections of the wave to the section queue
             if (user.waveQueue.length > 0) {
-                if (waveQueue[userIndex][0].wave.length > 0) {
+                if (users[userIndex].waveQueue[0].wave.length > 0) {
                     const request = users[userIndex].waveQueue[0];
                     let currentSection = request.wave[0];
                     const currentTime = ticks;
                     if (currentTime - ticks >= currentSection.wait) {
-                        sectionQueue[userIndex].push({ section: currentSection, userIndex, timeAfterLastSpawn: 0 });
+                        users[userIndex].sectionQueue.push({ section: currentSection, userIndex, timeAfterLastSpawn: 0 });
                         request.wave.splice(0, 1);
                         if (request.wave.length > 0) {
                             currentSection = request.wave[0];
                         } else {
-                            usera[userIndex].waveQueue.splice(0, 1);
+                            users[userIndex].waveQueue.splice(0, 1);
                         }
 
                     } else {
                         currentSection.wait -= 1;
                     }
                 } else {
-                    waveQueue[userIndex].splice(0, 1);
+                    users[userIndex].waveQueue.splice(0, 1);
                 }
             }
             // Handles the section queue and spawns enemies from the queue

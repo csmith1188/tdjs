@@ -56,8 +56,6 @@ function selectTower() {
         const cellHeight = rect.height / 20;
         const x = Math.floor((event.clientX - (rect.left + window.scrollX)) / cellWidth);
         const y = Math.floor((event.clientY - (rect.top + window.scrollY)) / cellHeight);
-        console.log(rect, x, y);
-
         socket.emit('towerSelect', { x, y })
     }
 
@@ -147,9 +145,10 @@ function getShopItems() {
 }
 
 function getProgram() {
-    const program = document.getElementById('programBox').value;
-    const tower = 0
-    socket.emit('userProgram', program);
+    const programBox = document.getElementById('programBox');
+    console.log(programBox.towerID);
+    
+    socket.emit('userProgram', programBox.value, selectedTower.index);
 }
 
 socket.on('gameData', (data) => {
@@ -171,19 +170,26 @@ socket.on('gameData', (data) => {
 });
 
 socket.on('towerSelected', (data) => {
-    
-    console.log(data);
     const towerX = data.x;
     const towerY = data.y;
-    console.log(towerX, towerY);
     let towerMenu = document.getElementById('towerMenu');
+    let programMenu = document.getElementById('programBox');
+    console.log(data);
+    
 
     if (selectedTower == null) {
         towerMenu.style.display = 'block';
-        selectedTower = true
-    } else if (selectedTower == true) {
+        selectedTower = data;
+        if (selectedTower.userCode != null) {
+            programMenu.value = selectedTower.userCode;
+        } else {
+            programMenu.value = '';
+        }
+
+    } else {
         towerMenu.style.display = 'none';
         selectedTower = null
+
     }
     
     

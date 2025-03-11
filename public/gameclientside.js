@@ -174,6 +174,7 @@ socket.on('towerSelected', (data) => {
     const towerY = data.y;
     let towerMenu = document.getElementById('towerMenu');
     let programMenu = document.getElementById('programBox');
+    let towerRange = document.getElementById('towerRange');
     console.log(data);
     
 
@@ -182,8 +183,10 @@ socket.on('towerSelected', (data) => {
         selectedTower = data;
         if (selectedTower.userCode != null) {
             programMenu.value = selectedTower.userCode;
+            towerRange.value = selectedTower.range;
         } else {
             programMenu.value = '';
+            towerRange.value = '';
         }
 
     } else {

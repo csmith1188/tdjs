@@ -58,7 +58,15 @@
             height: 5vw;
             z-index: 11;
         }
-
+        
+        #waveNumber {
+            position: absolute;
+            top: 2vw;
+            left: 0;
+            width: 10%;
+            height: 5vw;
+            z-index: 11;
+        }
         
         #cashAmount {
             position: absolute;
@@ -102,6 +110,18 @@
             border-top-right-radius: 15px;
             border-bottom-right-radius: 15px;
         }
+
+        #upgradeBox {
+            position: absolute;
+            top: 15vw;
+            left: 0;
+            width: 97%;
+            height: 5vw;
+            background-color: white;
+            z-index: 11;
+            border-style: solid;
+        }
+
     </style>
 </head>
 
@@ -116,7 +136,12 @@
 
         <div id="cashAmount">
             Money: <span id="cash">N/A</span>
-        
+        </div>
+
+        <div id="waveNumber">
+            Wave:  <span id="waves">N/A</span>
+        </div>
+
         <div id="towerMenu">
             
 
@@ -127,7 +152,7 @@
             <div id="towerRangeText">
                 Tower Range: <span id="towerRange"></span>
             </div>
-            
+            <div id="upgradeBox"> </div>
             <div id="programMenu">
                 <textarea id="programBox" name="programBox" cols="22" rows="10" style="resize: none;"></textarea>
                 <button onclick="getProgram()"></button>

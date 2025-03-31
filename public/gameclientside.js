@@ -167,6 +167,7 @@ socket.on('towerSelected', (data) => {
     let towerMenu = document.getElementById('towerMenu');
     let programMenu = document.getElementById('programBox');
     if (selectedTower == null) {
+        towerMenu.style.left = 0 - towerMenu.style.width
         towerMenu.style.display = 'block';
         selectedTower = data;
         if (selectedTower.userCode != null) {

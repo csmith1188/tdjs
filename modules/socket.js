@@ -1,4 +1,4 @@
-
+const vm = require('vm')
 const frameRate = 60;
 const pathPoint = [{ y: 2, x: 0 }, { y: 2, x: 8 }, { y: 12, x: 8 }, { y: 12, x: 16 }, { y: 2, x: 16 }, { y: 2, x: 24 }, { y: 18, x: 24 }, { y: 18, x: 31 }];
 const pathPoint2 = [{ y: 2, x: 0 }, { y: 2, x: 25 }, {y: 6, x: 25 }, {y: 6, x: 8 }, { y: 10, x: 8 }, { y: 10, x: 16 }, { y: 14, x: 16 }, { y: 14, x: 24 }, { y: 18, x: 24 }, { y: 18, x: 31 }];
@@ -348,19 +348,29 @@ function connection(socket, io) {
         }
     })
     socket.on('userProgram', (program, tower) => {
-        const allowedStatements = [
-            'this.getEnemies()', 'this.getDistance()', 'this.getDistanceFromStart()', 'this.shoot()'
-        ];
-
-        const containsOnlyAllowedStatements = program.split(';').every(statement => 
-                    allowedStatements.some(allowed => statement.trim().includes(allowed))
-                );
-
-        if (containsOnlyAllowedStatements) {
-            users[userIndex].towers[tower].userCode = program;
-        } else {
-            console.log('Program contains statements that are not allowed.');
-            console.log('Disallowed statement found in user program:', program);
+        const allowedFunctions = {
+            getEnemies: () => users[userIndex].towers[tower].getEnemies(),
+            getDistance: (enemy) => {users[userIndex].towers[tower].getDistance(enemy)},
+            shoot: (enemy) => {
+                users[userIndex].towers[tower].shoot(enemy)
+            }
+        };
+    
+        try {
+            // Execute the program in a controlled environment
+            const sandbox = {
+                ...allowedFunctions,
+                tower: users[userIndex].towers[tower]
+            };
+    
+            const vm = require('vm');
+            const script = new vm.Script(program);
+            const context = vm.createContext(sandbox);
+            script.runInContext(context);
+    
+            console.log('Program executed successfully.');
+        } catch (error) {
+            console.error('Error executing user program:', error.message, error.name, error.stack);
         }
     });
 

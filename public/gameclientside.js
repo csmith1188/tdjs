@@ -48,11 +48,11 @@ function drawEnemy(enemy) {
 }
 
 
-function selectTower() {
+function selectTower(rows, cols) {
     const selectHandler = (event) => {
         const rect = gameBoard.getBoundingClientRect();
-        const cellWidth = rect.width / 32;
-        const cellHeight = rect.height / 20;
+        const cellWidth = rect.width / cols;
+        const cellHeight = rect.height / rows;
         const x = Math.floor((event.clientX - (rect.left + window.scrollX)) / cellWidth);
         const y = Math.floor((event.clientY - (rect.top + window.scrollY)) / cellHeight);
         socket.emit('towerSelect', { x, y })
@@ -60,7 +60,7 @@ function selectTower() {
 
     gameBoard.addEventListener('click', selectHandler);
 }
-selectTower()
+selectTower(20, 32)
 
 
 function drawTower(tower) {
@@ -95,8 +95,8 @@ function getShopItems() {
         const item = document.createElement('button');
         item.name = tower;
         item.innerHTML = tower;
-        item.style.width = "100px";
-        item.style.height = "100px";
+        item.style.width = "50px";
+        item.style.height = "50px";
         item.style.backgroundColor = "white"
         item.addEventListener('mouseover', function () {
             item.style.backgroundColor = "gray";
@@ -167,8 +167,8 @@ socket.on('towerSelected', (data) => {
     let towerMenu = document.getElementById('towerMenu');
     let programMenu = document.getElementById('programBox');
     if (selectedTower == null) {
-        towerMenu.style.left = 0 - towerMenu.style.width
-        towerMenu.style.display = 'block';
+        towerMenu.style.transition = 'transform 0.3s ease-in-out';
+        towerMenu.style.transform = 'translate(100%, 0)';
         selectedTower = data;
         if (selectedTower.userCode != null) {
             programMenu.value = selectedTower.userCode;
@@ -177,8 +177,9 @@ socket.on('towerSelected', (data) => {
         }
 
     } else {
-        towerMenu.style.display = 'none';
         selectedTower = null
+        towerMenu.style.transition = 'transform 0.3s ease-in-out';
+        towerMenu.style.transform = 'translate(0, 0)';
 
     }
     

@@ -144,21 +144,38 @@ function getProgram() {
 }
 
 socket.on('gameData', (data) => {
-    const grid = data[0].grid
-    const rows = data[0].rows
-    const cols = data[0].cols
-    const enemies = data[1]
-    const towers = data[2]
+    const grid = data.gridData.grid
+    const rows = data.gridData.rows
+    const cols = data.gridData.cols
+    const enemies = data.enemyData
+    const towers = data.towerData
+    const gameOver = data.gameOverStatus
+    const gameRunning = data.gameRunningStatus
 
     gameBoard.width = cols * spacing;
     gameBoard.height = rows * spacing;
-    drawGrid(grid, rows, cols);
-    enemies.forEach(enemy => {
-        drawEnemy(enemy);
-    });
-    towers.forEach(tower => {
-        drawTower(tower)
-    })
+    if (!gameOver && gameRunning) {
+        drawGrid(grid, rows, cols);
+        enemies.forEach(enemy => {
+            drawEnemy(enemy);
+        });
+        towers.forEach(tower => {
+            drawTower(tower)
+        })
+    } else {
+        if (gameOver) {
+            ctx.clearRect(0, 0, gameBoard.width, gameBoard.height);
+            drawGrid(grid, rows, cols);
+            enemies.forEach(enemy => {
+                drawEnemy(enemy);
+            });
+            towers.forEach(tower => {
+                drawTower(tower)
+            })
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+            ctx.fillRect(0, 0, gameBoard.width, gameBoard.height);
+        }
+    }
 });
 
 socket.on('towerSelected', (data) => {
@@ -182,7 +199,7 @@ socket.on('towerSelected', (data) => {
         towerMenu.style.transform = 'translate(0, 0)';
 
     }
-    
-    
+
+
 
 })

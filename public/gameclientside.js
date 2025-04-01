@@ -12,7 +12,6 @@ towerList = [
     'basic', 'sniper', 'machineGun'
 
 ];
-console.log()
 getShopItems(programBox);
 
 
@@ -49,11 +48,11 @@ function drawEnemy(enemy) {
 }
 
 
-function selectTower() {
+function selectTower(rows, cols) {
     const selectHandler = (event) => {
         const rect = gameBoard.getBoundingClientRect();
-        const cellWidth = rect.width / 32;
-        const cellHeight = rect.height / 20;
+        const cellWidth = rect.width / cols;
+        const cellHeight = rect.height / rows;
         const x = Math.floor((event.clientX - (rect.left + window.scrollX)) / cellWidth);
         const y = Math.floor((event.clientY - (rect.top + window.scrollY)) / cellHeight);
         socket.emit('towerSelect', { x, y })
@@ -61,7 +60,7 @@ function selectTower() {
 
     gameBoard.addEventListener('click', selectHandler);
 }
-selectTower()
+selectTower(20, 32)
 
 
 function drawTower(tower) {
@@ -92,13 +91,12 @@ function drawTower(tower) {
 
 
 function getShopItems() {
-    console.log(towerList)
     towerList.forEach(tower => {
         const item = document.createElement('button');
         item.name = tower;
         item.innerHTML = tower;
-        item.style.width = "100px";
-        item.style.height = "100px";
+        item.style.width = "50px";
+        item.style.height = "50px";
         item.style.backgroundColor = "white"
         item.addEventListener('mouseover', function () {
             item.style.backgroundColor = "gray";
@@ -109,13 +107,11 @@ function getShopItems() {
             item.style.cursor = "default";
         });
         item.addEventListener('click', function () {
-            console.log("Got Tower")
             if (selectedBuyableTower == item.name) {
                 selectedBuyableTower = null
             } else {
                 selectedBuyableTower = item.name
             }
-            console.log(selectedBuyableTower)
             // the if statement below is supposed to be for selecting a grid square
             if (selectedBuyableTower != null) {
                 const handleClick = (event) => {
@@ -136,8 +132,6 @@ function getShopItems() {
                 gameBoard.addEventListener('click', handleClick);
 
 
-            } else {
-                console.log("hey there mr guy")
             }
         });
         towerShop.appendChild(item);
@@ -146,8 +140,6 @@ function getShopItems() {
 
 function getProgram() {
     const programBox = document.getElementById('programBox');
-    console.log(programBox.towerID);
-    
     socket.emit('userProgram', programBox.value, selectedTower.index);
 }
 
@@ -174,11 +166,9 @@ socket.on('towerSelected', (data) => {
     const towerY = data.y;
     let towerMenu = document.getElementById('towerMenu');
     let programMenu = document.getElementById('programBox');
-    console.log(data);
-    
-
     if (selectedTower == null) {
-        towerMenu.style.display = 'block';
+        towerMenu.style.transition = 'transform 0.3s ease-in-out';
+        towerMenu.style.transform = 'translate(100%, 0)';
         selectedTower = data;
         if (selectedTower.userCode != null) {
             programMenu.value = selectedTower.userCode;
@@ -187,8 +177,9 @@ socket.on('towerSelected', (data) => {
         }
 
     } else {
-        towerMenu.style.display = 'none';
         selectedTower = null
+        towerMenu.style.transition = 'transform 0.3s ease-in-out';
+        towerMenu.style.transform = 'translate(0, 0)';
 
     }
     

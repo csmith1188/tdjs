@@ -1,10 +1,10 @@
-
+const vm = require('vm')
 const frameRate = 60;
 const pathPoint = [{ y: 2, x: 0 }, { y: 2, x: 8 }, { y: 12, x: 8 }, { y: 12, x: 16 }, { y: 2, x: 16 }, { y: 2, x: 24 }, { y: 18, x: 24 }, { y: 18, x: 31 }];
-const pathPoint2 = [{ y: 2, x: 0 }, { y: 2, x: 25 }, {y: 6, x: 25 }, {y: 6, x: 8 }, { y: 10, x: 8 }, { y: 10, x: 16 }, { y: 14, x: 16 }, { y: 14, x: 24 }, { y: 18, x: 24 }, { y: 18, x: 31 }];
-const pathPoint3 = [{ y: 2, x: 0 }, { y: 2, x: 3}, {y: 6, x: 3}, {y: 6, x: 5}, {y: 10, x: 5}, {y: 10, x: 7}, {y: 6, x: 7}, {y: 6, x: 9}, {y: 10, x: 9}, {y: 10, x: 11}, {y: 6, x: 11}, {y: 6, x: 13}, {y: 10, x: 13}, {y: 10, x: 15}, {y: 6, x: 15}, {y: 6, x: 17}, {y: 10, x: 17}, {y: 10, x: 19}, {y: 6, x: 19}, {y: 6, x: 21}, {y: 10, x: 21}, {y: 10, x: 23}, {y: 6, x: 23}, {y: 6, x: 25}, {y: 10, x: 25}, {y: 10, x: 27}, {y: 6, x: 27}, {y: 6, x: 29}, {y: 10, x: 29}, {y: 10, x: 31}, {y: 18, x: 31}];
-const pathPoint4 = [{ y: 2, x: 0 }, { y: 2, x: 15}, { y: 10, x: 15 }, {y: 10, x: 11}, {y: 6, x: 11}, {y: 6, x: 19}, {y: 10, x: 19}, {y: 10, x: 15}, {y: 18, x: 15}, {y: 18, x: 31}];
-const pathPoint5 = [{ y: 2, x: 0 }, { y: 2, x: 15}, { y: 10, x: 15 },  { y: 10, x: 11}, { y: 6, x: 11}, { y: 6, x: 19 }, { y: 2, x: 19}, { y: 2, x: 15}, { y: 18, x: 15 }, { y: 18, x: 31 }];
+const pathPoint2 = [{ y: 2, x: 0 }, { y: 2, x: 25 }, { y: 6, x: 25 }, { y: 6, x: 8 }, { y: 10, x: 8 }, { y: 10, x: 16 }, { y: 14, x: 16 }, { y: 14, x: 24 }, { y: 18, x: 24 }, { y: 18, x: 31 }];
+const pathPoint3 = [{ y: 2, x: 0 }, { y: 2, x: 3 }, { y: 6, x: 3 }, { y: 6, x: 5 }, { y: 10, x: 5 }, { y: 10, x: 7 }, { y: 6, x: 7 }, { y: 6, x: 9 }, { y: 10, x: 9 }, { y: 10, x: 11 }, { y: 6, x: 11 }, { y: 6, x: 13 }, { y: 10, x: 13 }, { y: 10, x: 15 }, { y: 6, x: 15 }, { y: 6, x: 17 }, { y: 10, x: 17 }, { y: 10, x: 19 }, { y: 6, x: 19 }, { y: 6, x: 21 }, { y: 10, x: 21 }, { y: 10, x: 23 }, { y: 6, x: 23 }, { y: 6, x: 25 }, { y: 10, x: 25 }, { y: 10, x: 27 }, { y: 6, x: 27 }, { y: 6, x: 29 }, { y: 10, x: 29 }, { y: 10, x: 31 }, { y: 18, x: 31 }];
+const pathPoint4 = [{ y: 2, x: 0 }, { y: 2, x: 15 }, { y: 10, x: 15 }, { y: 10, x: 11 }, { y: 6, x: 11 }, { y: 6, x: 19 }, { y: 10, x: 19 }, { y: 10, x: 15 }, { y: 18, x: 15 }, { y: 18, x: 31 }];
+const pathPoint5 = [{ y: 2, x: 0 }, { y: 2, x: 15 }, { y: 10, x: 15 }, { y: 10, x: 11 }, { y: 6, x: 11 }, { y: 6, x: 19 }, { y: 2, x: 19 }, { y: 2, x: 15 }, { y: 18, x: 15 }, { y: 18, x: 31 }];
 var enemies = []
 var towers = []
 var users = []
@@ -214,19 +214,13 @@ class Tower {
         this.getEnemies = () => {
             return users[this.userIndex].enemies;
         }
-        this.getDistance = (enemy) => {     
+        this.getDistance = (enemy) => {
             return Math.sqrt(Math.pow(enemy.x - this.x, 2) + Math.pow(enemy.y - this.y, 2));
         }
         this.getDistanceFromStart = (enemy) => {
             return enemy.distanceFromStart;
         }
-        try {
-            eval(this.userCode);
-
-        } catch (error) {
-            console.log("Error in the user's code," + error);
-            
-        }
+        
         // this.getEnemies().forEach(enemy => {
         //     this.shoot(enemy);
         // });
@@ -314,7 +308,7 @@ function connection(socket, io) {
     socket.id = socket.request.session.user;
     console.log('A user connected,', socket.id);
     if (!users.find(user => user.id === socket.id)) {
-        users.push({ id: socket.id, userIndex: 'temp', socket: 'temp', enemies: [], towers: [], waveQueue: [], sectionQueue: [] });
+        users.push({ id: socket.id, userIndex: 'temp', socket: 'temp', gameIsRunning: true, enemies: [], towers: [], waveQueue: [], sectionQueue: [], health: 100, money: 0});
     }
 
     const userIndex = users.findIndex(user => user.id === socket.id);
@@ -348,19 +342,41 @@ function connection(socket, io) {
         }
     })
     socket.on('userProgram', (program, tower) => {
-        const allowedStatements = [
-            'this.getEnemies()', 'this.getDistance()', 'this.getDistanceFromStart()', 'this.shoot()'
-        ];
+        const allowedFunctions = {
+            getEnemies: () => users[userIndex].towers[tower].getEnemies(),
+            getDistance: (enemy) => { users[userIndex].towers[tower].getDistance(enemy) },
+            shoot: (enemy) => {
+                users[userIndex].towers[tower].shoot(enemy)
+            }
+        };
 
-        const containsOnlyAllowedStatements = program.split(';').every(statement => 
-                    allowedStatements.some(allowed => statement.trim().includes(allowed))
-                );
+        const prohibitedStatements = ['fs', 'require', 'this']
 
-        if (containsOnlyAllowedStatements) {
-            users[userIndex].towers[tower].userCode = program;
-        } else {
-            console.log('Program contains statements that are not allowed.');
-            console.log('Disallowed statement found in user program:', program);
+        try {
+            const normalizedProgram = program.replace(/(['"`])\s*\+\s*\1/g, ''); // Remove empty concatenations
+            const resolvedProgram = normalizedProgram.replace(/(['"`])([^'"`]+?)\1\s*\+\s*(['"`])([^'"`]+?)\3/g, (_, q1, part1, q2, part2) => {
+                if (q1 === q2) return `${part1}${part2}`; // Concatenate if quotes match
+                return _;
+            });
+
+            const isProgramGood = !prohibitedStatements.some(statement => resolvedProgram.includes(statement));
+            if (isProgramGood) {
+                // Execute the program in a controlled environment
+                const sandbox = {
+                    ...allowedFunctions,
+                    tower: users[userIndex].towers[tower]
+                };
+
+                const script = new vm.Script(program);
+                const context = vm.createContext(sandbox);
+                script.runInContext(context);
+
+                console.log('Program executed successfully.', program);
+            } else {
+                throw new Error("Prohibited statements detected in the user's program.", program);
+            };
+        } catch (error) {
+            console.error('Error executing user program:', error.message, error.name, error.stack);
         }
     });
 
@@ -406,24 +422,24 @@ let gameLoop = setInterval(() => {
             });
             // Handles the wave queue and sends the sections of the wave to the section queue
             if (user.waveQueue.length > 0) {
-                if (waveQueue[userIndex][0].wave.length > 0) {
+                if (users[userIndex].waveQueue[0].wave.length > 0) {
                     const request = users[userIndex].waveQueue[0];
                     let currentSection = request.wave[0];
                     const currentTime = ticks;
                     if (currentTime - ticks >= currentSection.wait) {
-                        sectionQueue[userIndex].push({ section: currentSection, userIndex, timeAfterLastSpawn: 0 });
+                        users[userIndex].sectionQueue.push({ section: currentSection, userIndex, timeAfterLastSpawn: 0 });
                         request.wave.splice(0, 1);
                         if (request.wave.length > 0) {
                             currentSection = request.wave[0];
                         } else {
-                            usera[userIndex].waveQueue.splice(0, 1);
+                            users[userIndex].waveQueue.splice(0, 1);
                         }
 
                     } else {
                         currentSection.wait -= 1;
                     }
                 } else {
-                    waveQueue[userIndex].splice(0, 1);
+                    users[userIndex].waveQueue.splice(0, 1);
                 }
             }
             // Handles the section queue and spawns enemies from the queue
@@ -446,7 +462,7 @@ let gameLoop = setInterval(() => {
         socket.emit('gameData', [{ grid, rows, cols }, user.enemies, user.towers]);
 
 
-    })  
+    })
 
 }, 1000 / frameRate);
 

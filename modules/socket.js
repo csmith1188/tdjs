@@ -1,4 +1,7 @@
 const vm = require('vm')
+const acorn = require('acorn')
+const walk = require('acorn-walk');
+const { text } = require('express');
 const frameRate = 60;
 const pathPoint = [{ y: 2, x: 0 }, { y: 2, x: 8 }, { y: 12, x: 8 }, { y: 12, x: 16 }, { y: 2, x: 16 }, { y: 2, x: 24 }, { y: 18, x: 24 }, { y: 18, x: 31 }];
 const pathPoint2 = [{ y: 2, x: 0 }, { y: 2, x: 25 }, { y: 6, x: 25 }, { y: 6, x: 8 }, { y: 10, x: 8 }, { y: 10, x: 16 }, { y: 14, x: 16 }, { y: 14, x: 24 }, { y: 18, x: 24 }, { y: 18, x: 31 }];
@@ -347,42 +350,105 @@ function connection(socket, io) {
             socket.emit('towerSelected', users[userIndex].towers.find(tower => tower.x === x && tower.y === y));
         }
     })
+
     socket.on('userProgram', (program, tower) => {
         const allowedFunctions = {
             getEnemies: () => users[userIndex].towers[tower].getEnemies(),
-            getDistance: (enemy) => { users[userIndex].towers[tower].getDistance(enemy) },
+            getDistance: (enemy) => users[userIndex].towers[tower].getDistance(enemy),
             shoot: (enemy) => {
-                users[userIndex].towers[tower].shoot(enemy)
+                users[userIndex].towers[tower].shoot(enemy);
             }
         };
-
-        const prohibitedStatements = ['fs', 'require', 'this']
-
+    
+        const prohibitedStatements = [
+            'fs', 'require', 'this', 'constructor', 'return', 'child_process', 'CharCode',
+            'eval', 'Function', 'global', 'Buffer', 'process', 'vm', 'setTimeout', 
+            'setInterval', 'Reflect', 'Proxy', 'console'
+        ];
+    
         try {
-            const normalizedProgram = program.replace(/(['"`])\s*\+\s*\1/g, ''); // Remove empty concatenations
-            const resolvedProgram = normalizedProgram.replace(/(['"`])([^'"`]+?)\1\s*\+\s*(['"`])([^'"`]+?)\3/g, (_, q1, part1, q2, part2) => {
-                if (q1 === q2) return `${part1}${part2}`; // Concatenate if quotes match
-                return _;
-            });
-
-            const isProgramGood = !prohibitedStatements.some(statement => resolvedProgram.includes(statement));
-            if (isProgramGood) {
-                // Execute the program in a controlled environment
-                const sandbox = {
-                    ...allowedFunctions,
-                    tower: users[userIndex].towers[tower]
-                };
-
-                const script = new vm.Script(program);
-                const context = vm.createContext(sandbox);
-                script.runInContext(context);
-
-                console.log('Program executed successfully.', program);
-            } else {
-                throw new Error("Prohibited statements detected in the user's program.", program);
+            // Preprocess the program to decode obfuscation techniques
+            const preprocessProgram = (program) => {
+                // Decode Unicode escape sequences
+                program = program.replace(/\\u([\dA-Fa-f]{4})/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
+    
+                // Decode hexadecimal escape sequences
+                program = program.replace(/\\x([\dA-Fa-f]{2})/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
+    
+                // Decode binary escape sequences
+                program = program.replace(/String\.fromCharCode\((0b[01]+(?:,\s*0b[01]+)*)\)/g, (_, binarySequence) => {
+                    return binarySequence
+                        .split(',')
+                        .map(bin => String.fromCharCode(parseInt(bin.trim(), 2)))
+                        .join('');
+                });
+    
+                return program;
             };
+    
+            const normalizedProgram = preprocessProgram(program);
+    
+            // Validate the program using AST-based analysis
+            const validateProgram = (resolvedProgram, prohibitedStatements) => {
+                const ast = acorn.parse(resolvedProgram, { ecmaVersion: 2020 });
+                let hasProhibitedStatements = false;
+                let hasProhibitedStatementsIncluded = false
+    
+                walk.simple(ast, {
+                    CallExpression(node) {
+                        if (prohibitedStatements.includes(node.callee.name)) {
+                            hasProhibitedStatements = true;
+                        }
+                    },
+                    MemberExpression(node) {
+                        if (
+                            prohibitedStatements.includes(node.object.name) ||
+                            prohibitedStatements.includes(node.property.name)
+                        ) {
+                            hasProhibitedStatements = true;
+                        }
+                    },
+                    NewExpression(node) {
+                        if (prohibitedStatements.includes(node.callee.name)) {
+                            hasProhibitedStatements = true;
+                        }
+                    }
+                });
+
+                prohibitedStatements.forEach(statement => {
+                    if (resolvedProgram.includes(statement)) {
+                        hasProhibitedStatementsIncluded = true;
+                    }
+                });
+    
+                if (hasProhibitedStatements || hasProhibitedStatementsIncluded) {
+                    throw new Error('Prohibited statements');
+                }
+            };
+    
+            validateProgram(normalizedProgram, prohibitedStatements);
+    
+            // Execute the program in a controlled environment
+            const sandbox = {
+                ...allowedFunctions,
+                tower: users[userIndex].towers[tower],
+                process: undefined, // Remove access to process
+                constructor: undefined, // Remove access to constructor
+                this: undefined // Remove access to this
+            };
+    
+            const script = new vm.Script(program);
+            const context = vm.createContext(sandbox);
+            script.runInContext(context, { timeout: 1000 }); // Add a timeout to prevent infinite loops
+    
+            console.log('Program executed successfully.', program);
         } catch (error) {
-            console.error('Error executing user program:', error.message, error.name, error.stack);
+            console.error('Error executing user program:', 'An error occurred while executing the program.');
+            console.log(error);
+            
+            if (error.message.includes('Prohibited statements')) {
+                socket.emit('codeWillNotBeExecuted', {text: 'We have found that your program has prohibited statements included and we will refuse to execute it on our server.'})
+            }
         }
     });
 

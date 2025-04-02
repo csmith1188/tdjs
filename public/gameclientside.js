@@ -198,8 +198,9 @@ socket.on('towerSelected', (data) => {
         towerMenu.style.transition = 'transform 0.3s ease-in-out';
         towerMenu.style.transform = 'translate(0, 0)';
 
-    }
+    };
+});
 
-
-
+socket.on('codeWillNotBeExecuted', (information) => {
+    console.log(information.text)
 })

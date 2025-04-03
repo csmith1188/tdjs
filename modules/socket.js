@@ -359,41 +359,63 @@ function connection(socket, io) {
                 users[userIndex].towers[tower].shoot(enemy);
             }
         };
-    
+
         const prohibitedStatements = [
             'fs', 'require', 'this', 'constructor', 'return', 'child_process', 'CharCode',
-            'eval', 'Function', 'global', 'Buffer', 'process', 'vm', 'setTimeout', 
-            'setInterval', 'Reflect', 'Proxy', 'console'
+            'eval', 'Function', 'global', 'Buffer', 'process', 'vm', 'setTimeout',
+            'setInterval', 'Reflect', 'Proxy', 'console', 'charCodes', 'code', 'Code', 'char', 'func', 'Func', 'function'
         ];
-    
+
         try {
             // Preprocess the program to decode obfuscation techniques
             const preprocessProgram = (program) => {
+                // precocatinate the program
+                const normalizedProgram = program.replace(/(['"`])\s*\+\s*\1/g, ''); // Remove empty concatenations
+                var resolvedProgram = normalizedProgram.replace(/(['"`])([^'"`]+?)\1\s*\+\s*(['"`])([^'"`]+?)\3/g, (_, q1, part1, q2, part2) => {
+                    if (q1 === q2) return `${part1}${part2}`; // Concatenate if quotes match
+                    return _;
+                });
                 // Decode Unicode escape sequences
-                program = program.replace(/\\u([\dA-Fa-f]{4})/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
-    
+                resolvedProgram = resolvedProgram.replace(/\\u([\dA-Fa-f]{4})/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
+
                 // Decode hexadecimal escape sequences
-                program = program.replace(/\\x([\dA-Fa-f]{2})/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
-    
+                resolvedProgram = resolvedProgram.replace(/\\x([\dA-Fa-f]{2})/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
+
                 // Decode binary escape sequences
-                program = program.replace(/String\.fromCharCode\((0b[01]+(?:,\s*0b[01]+)*)\)/g, (_, binarySequence) => {
+                resolvedProgram = resolvedProgram.replace(/String\.fromCharCode\((0b[01]+(?:,\s*0b[01]+)*)\)/g, (_, binarySequence) => {
                     return binarySequence
                         .split(',')
                         .map(bin => String.fromCharCode(parseInt(bin.trim(), 2)))
                         .join('');
                 });
-    
-                return program;
+
+                return resolvedProgram;
             };
-    
+
             const normalizedProgram = preprocessProgram(program);
-    
+            // Resolve template literals like `${'c'}onsole`
+            var resolvedProgram = normalizedProgram.replace(/`([^`]*?)\$\{([^}]+?)\}([^`]*?)`/g, (_, before, expression, after) => {
+                try {
+                    // Evaluate the expression inside `${...}`
+                    const resolvedExpression = eval(expression); // Use `eval` cautiously
+                    return `'${before}${resolvedExpression}${after}'`;
+                } catch (error) {
+                    console.error('Error resolving template literal:', error.message);
+                    return `'${before}${after}'`; // Fallback if evaluation fails
+                }
+            });
+
+            // Concatenate string literals
+            resolvedProgram = resolvedProgram.replace(/(['"`])([^'"`]+?)\1\s*\+\s*(['"`])([^'"`]+?)\3/g, (_, q1, part1, q2, part2) => {
+                return `'${part1}${part2}'`;
+            });
+
             // Validate the program using AST-based analysis
             const validateProgram = (resolvedProgram, prohibitedStatements) => {
                 const ast = acorn.parse(resolvedProgram, { ecmaVersion: 2020 });
                 let hasProhibitedStatements = false;
                 let hasProhibitedStatementsIncluded = false
-    
+
                 walk.simple(ast, {
                     CallExpression(node) {
                         if (prohibitedStatements.includes(node.callee.name)) {
@@ -420,14 +442,14 @@ function connection(socket, io) {
                         hasProhibitedStatementsIncluded = true;
                     }
                 });
-    
+
                 if (hasProhibitedStatements || hasProhibitedStatementsIncluded) {
                     throw new Error('Prohibited statements');
                 }
             };
-    
-            validateProgram(normalizedProgram, prohibitedStatements);
-    
+
+            validateProgram(resolvedProgram, prohibitedStatements);
+
             // Execute the program in a controlled environment
             const sandbox = {
                 ...allowedFunctions,
@@ -436,18 +458,22 @@ function connection(socket, io) {
                 constructor: undefined, // Remove access to constructor
                 this: undefined // Remove access to this
             };
-    
+
             const script = new vm.Script(program);
             const context = vm.createContext(sandbox);
             script.runInContext(context, { timeout: 1000 }); // Add a timeout to prevent infinite loops
-    
+
             console.log('Program executed successfully.', program);
         } catch (error) {
             console.error('Error executing user program:', 'An error occurred while executing the program.');
-            console.log(error);
-            
+            console.log(error, error.message);
+
             if (error.message.includes('Prohibited statements')) {
-                socket.emit('codeWillNotBeExecuted', {text: 'We have found that your program has prohibited statements included and we will refuse to execute it on our server.'})
+                socket.emit('codeWillNotBeExecuted', { text: 'We have found that your program has prohibited statements included and we will refuse to execute it on our server.' })
+            } else if (error.message.includes('timeout')) {
+                socket.emit('codeWillNotBeExecuted', { text: 'Your program took too long to execute and we have refused to execute it on our server.' })
+            } else if (error.message.includes('Unexpected token')) {
+                socket.emit('codeWillNotBeExecuted', { text: 'Your program has an unexpected token. '+error.message })
             }
         }
     });
@@ -544,7 +570,7 @@ let gameLoop = setInterval(() => {
             }
         }
         // Sends the game data to the client
-        socket.emit('gameData', {gridData: { grid, rows, cols }, enemyData: user.enemies, towerData: user.towers, gameOverStatus: user.gameOver, gameRunningStatus: user.gameIsRunning});
+        socket.emit('gameData', { gridData: { grid, rows, cols }, enemyData: user.enemies, towerData: user.towers, gameOverStatus: user.gameOver, gameRunningStatus: user.gameIsRunning });
 
 
     })

@@ -1,5 +1,5 @@
 const socket = io();
-const spacing = 50;
+const spacing = 32; //change this to change the size of the grid cell and quality of each cell
 var selectedBuyableTower = null
 
 var selectedTower = null

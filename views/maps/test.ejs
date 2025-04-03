@@ -50,6 +50,53 @@
             max-width: 50px;
         }
 
+        #healthAmount {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 10%;
+            height: 5vw;
+            z-index: 11;
+        }
+        
+        #waveNumber {
+            position: absolute;
+            top: 2vw;
+            left: 0;
+            width: 10%;
+            height: 5vw;
+            z-index: 11;
+        }
+        
+        #cashAmount {
+            position: absolute;
+            top: 1vw;
+            left: 0;
+            width: 10%;
+            height: 5vw;
+            z-index: 11;
+        }
+
+        #towerDamageText {
+            position: absolute;
+            top: 5vw;
+            left: 0;
+            width: 100%;
+            height: 5vw;
+            background-color: white;
+            z-index: 11;
+        }
+
+        #towerRangeText {
+            position: absolute;
+            top: 10vw;
+            left: 0;
+            width: 100%;
+            height: 5vw;
+            background-color: white;
+            z-index: 11;
+        }
+
         #towerMenu {
             position: absolute;
             background-color: white;
@@ -63,6 +110,18 @@
             border-top-right-radius: 15px;
             border-bottom-right-radius: 15px;
         }
+
+        #upgradeBox {
+            position: absolute;
+            top: 15vw;
+            left: 0;
+            width: 97%;
+            height: 5vw;
+            background-color: white;
+            z-index: 11;
+            border-style: solid;
+        }
+
     </style>
 </head>
 
@@ -70,8 +129,30 @@
     <div id="mainPage">
         <canvas id="gameBoard"></canvas>
         <div id="gameShopMenu"></div>
+
+        <div id="healthAmount">
+            Health: <span id="health">N/A</span>
+        </div>
+
+        <div id="cashAmount">
+            Money: <span id="cash">N/A</span>
+        </div>
+
+        <div id="waveNumber">
+            Wave:  <span id="waves">N/A</span>
+        </div>
+
         <div id="towerMenu">
-            <button onclick="console.log('test')"></button>
+            
+
+            <div id="towerDamageText">
+                Tower Damage: <span id="towerDamage"></span>
+            </div>
+
+            <div id="towerRangeText">
+                Tower Range: <span id="towerRange"></span>
+            </div>
+            <div id="upgradeBox"> </div>
             <div id="programMenu">
                 <textarea id="programBox" name="programBox" cols="22" rows="10" style="resize: none;"></textarea>
                 <button onclick="getProgram()"></button>

@@ -1,11 +1,151 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Index</title>
+
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        #mainPage {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            background-color: rgb(68, 68, 68);
+        }
+
+
+        #formBox {
+            display: flex;
+            top: 0;
+            left: -5%;
+            height: 4vh;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2vh;
+            border: 1px solid black;
+            animation: gradient 5s ease infinite;
+            background: linear-gradient(-30deg, #0040bf, #bf00ff);
+            background-size: 400% 400%;
+
+        }
+
+        #mainBox {
+            display: flex;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2vh;
+            border: 1px solid black;
+        }
+
+        #playButton {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #playButton a {
+            text-decoration: none;
+            color: black;
+            padding: 10px;
+            background-color: lightblue;
+            border: 1px solid black;
+            border-radius: 5px;
+        }
+
+        #text {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            color: rgb(180, 180, 180);
+        }
+
+        @keyframes gradient {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
+
+        }
+    </style>
+
 </head>
+
 <body>
-    <a href="/game">Test Map</a>
+    <div id="mainPage">
+
+        <div id="formBox">
+
+        </div>
+
+        <div id="mainBox">
+
+            <div id="playButton">
+
+                <div id="text">
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+    <script>
+        let links = document.getElementById('playButton');
+        let text = document.getElementById('text');
+        let mainPage = document.getElementById('mainPage');
+
+
+        var session = JSON.parse(`<%- session %>`);
+        console.log(session);
+
+        if (session && session.user) {
+            const textValue = document.createElement('h1');
+            textValue.textContent = `Click a map to play!`;
+            text.appendChild(textValue);
+
+
+            const mapsLink = document.createElement('a');
+            mapsLink.href = '/game';
+            mapsLink.textContent = 'Test Map';
+            links.appendChild(mapsLink);
+
+        } else {
+            const Guest = document.createElement('h1');
+            Guest.textContent = 'Welcome! Please login to play';
+            text.appendChild(Guest);
+            const loginLink = document.createElement('a');
+            loginLink.href = '/login';
+            loginLink.textContent = 'Login';
+            links.appendChild(loginLink);
+        }
+    </script>
 </body>
+
 </html>

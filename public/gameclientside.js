@@ -14,6 +14,32 @@ towerList = [
 ];
 getShopItems(programBox);
 
+const cellPlaceableImage = new Image();
+cellPlaceableImage.src = '/images/pathAndCells/cellPlaceable1.png'; // Path to the image in the images folder
+
+const pathUpDownImage = new Image();
+pathUpDownImage.src = '/images/pathAndCells/pathUpDown.png'; // Path to the image in the images folder
+
+const pathLeftRightImage = new Image();
+pathLeftRightImage.src = '/images/pathAndCells/pathLeftRight.png'; // Path to the image in the images folder
+
+const pathDownLeftImage = new Image();
+pathDownLeftImage.src = '/images/pathAndCells/pathDownLeft.png'; // Path to the image in the images folder
+
+const pathDownRightImage = new Image();
+pathDownRightImage.src = '/images/pathAndCells/pathDownRight.png'; // Path to the image in the images folder
+
+const pathFourWayImage = new Image();
+pathFourWayImage.src = '/images/pathAndCells/pathFourWay.png'; // Path to the image in the images folder
+
+const pathUpLeftImage = new Image();
+pathUpLeftImage.src = '/images/pathAndCells/pathUpLeft.png'; // Path to the image in the images folder
+
+const pathUpRightImage = new Image();
+pathUpRightImage.src = '/images/pathAndCells/pathUpRight.png'; // Path to the image in the images folder
+
+const enemyCamoImage = new Image();
+enemyCamoImage.src = '/images/enemySprites/popupEnemy.png'; // Path to the image in the images folder
 
 function drawGrid(grid, rows, cols) {
     for (let i = 0; i < rows; i++) {
@@ -21,29 +47,70 @@ function drawGrid(grid, rows, cols) {
             if (grid[i][j].hasPath) {
                 if (grid[i][j].isStart) {
                     ctx.fillStyle = 'lightblue';
+                    ctx.fillRect(j * spacing, i * spacing, spacing, spacing);
                 } else if (grid[i][j].isEnd) {
                     ctx.fillStyle = 'lightcoral';
+                    ctx.fillRect(j * spacing, i * spacing, spacing, spacing);
                 } else {
-                    ctx.fillStyle = 'black';
+                    // ctx.fillStyle = 'black';
+                    // ctx.fillRect(j * spacing, i * spacing, spacing, spacing);
+                    switch (grid[i][j].direction) {
+                        case 'up-down':
+                            ctx.drawImage(pathUpDownImage, j * spacing, i * spacing, spacing, spacing);
+                            break;
+                        case 'left-right':
+                            ctx.drawImage(pathLeftRightImage, j * spacing, i * spacing, spacing, spacing);
+                            break;
+                        case 'down-left':
+                            ctx.drawImage(pathDownLeftImage, j * spacing, i * spacing, spacing, spacing);
+                            break;
+                        case 'down-right':
+                            ctx.drawImage(pathDownRightImage, j * spacing, i * spacing, spacing, spacing);
+                            break;
+                        case 'four-way':
+                            ctx.drawImage(pathFourWayImage, j * spacing, i * spacing, spacing, spacing);
+                            break;
+                        case 'up-left':
+                            ctx.drawImage(pathUpLeftImage, j * spacing, i * spacing, spacing, spacing);
+                            break;
+                        case 'up-right':
+                            ctx.drawImage(pathUpRightImage, j * spacing, i * spacing, spacing, spacing);
+                            break;
+                    }
                 }
             } else {
-                ctx.fillStyle = 'darkgreen';
+                // Use the preloaded image
+                if (cellPlaceableImage.complete) {
+                    ctx.drawImage(cellPlaceableImage, j * spacing, i * spacing, spacing, spacing);
+                } else {
+                    // Fallback in case the image hasn't loaded yet
+                    cellPlaceableImage.onload = () => {
+                        ctx.drawImage(cellImage, j * spacing, i * spacing, spacing, spacing);
+                    };
+                }
             }
-            ctx.fillRect(j * spacing, i * spacing, spacing, spacing);
         }
     }
 }
 
 function drawEnemy(enemy) {
     const { x, y, color, size, healthBorder, borderColor } = enemy;
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(x * spacing + spacing / 2, y * spacing + spacing / 2, size / 2, 0, 2 * Math.PI);
-    ctx.fill();
-    if (healthBorder) {
-        ctx.strokeStyle = borderColor;
-        ctx.lineWidth = 2;
-        ctx.stroke();
+    // ctx.fillStyle = color;
+    // ctx.beginPath();
+    // ctx.arc(x * spacing + spacing / 2, y * spacing + spacing / 2, size / 2, 0, 2 * Math.PI);
+    // ctx.fill();
+    // if (healthBorder) {
+    //     ctx.strokeStyle = borderColor;
+    //     ctx.lineWidth = 2;
+    //     ctx.stroke();
+    // }
+    if (enemyCamoImage.complete) {
+        ctx.drawImage(enemyCamoImage, x * spacing, y * spacing, size, size);
+    } else {
+        // Fallback in case the image hasn't loaded yet
+        enemyCamoImage.onload = () => {
+            ctx.drawImage(enemyCamoImage, x * spacing, y * spacing, size, size);
+        };
     }
 }
 

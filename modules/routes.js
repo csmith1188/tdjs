@@ -93,7 +93,7 @@ function getgame(req, res) {
 
 function getMaps(req, res) {
     if (isAuthenticated) {
-        res.render('maps/selection')
+        res.render('maps/selection', { session: JSON.stringify(req.session) })
     } else {
         res.redirect('/login');
     }

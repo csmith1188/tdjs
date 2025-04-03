@@ -317,7 +317,7 @@ function connection(socket, io) {
     socket.id = socket.request.session.user;
     console.log('A user connected,', socket.id);
     if (!users.find(user => user.id === socket.id)) {
-        users.push({ id: socket.id, userIndex: 'temp', socket: 'temp', gameIsRunning: true, gameOver: false, enemies: [], towers: [], waveQueue: [], sectionQueue: [], health: 100, money: 0 });
+        users.push({ id: socket.id, userIndex: 'temp', socket: 'temp', gameIsRunning: true, gameOver: false, enemies: [], towers: [], waveQueue: [], sectionQueue: [], health: 100, money: 0, wave: 0 });
     }
 
     const userIndex = users.findIndex(user => user.id === socket.id);

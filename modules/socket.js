@@ -1,4 +1,7 @@
 const vm = require('vm')
+const acorn = require('acorn')
+const walk = require('acorn-walk');
+const { text } = require('express');
 const frameRate = 60;
 const pathPoint = [{ y: 2, x: 0 }, { y: 2, x: 8 }, { y: 12, x: 8 }, { y: 12, x: 16 }, { y: 2, x: 16 }, { y: 2, x: 24 }, { y: 18, x: 24 }, { y: 18, x: 31 }];
 const pathPoint2 = [{ y: 2, x: 0 }, { y: 2, x: 25 }, { y: 6, x: 25 }, { y: 6, x: 8 }, { y: 10, x: 8 }, { y: 10, x: 16 }, { y: 14, x: 16 }, { y: 14, x: 24 }, { y: 18, x: 24 }, { y: 18, x: 31 }];
@@ -134,7 +137,13 @@ class Enemy {
                 this.nextX = pathPoint[currentIndex + 1].x;
                 this.nextY = pathPoint[currentIndex + 1].y;
             } else {
+                users[this.userIndex].health -= this.health
                 users[this.userIndex].enemies.splice(users[this.userIndex].enemies.indexOf(this), 1)
+                if (users[this.userIndex].health <= 0) {
+                    users[this.userIndex].health = 0
+                    users[this.userIndex].gameOver = true
+                    users[this.userIndex].gameIsRunning = false
+                }
             }
         }
 
@@ -220,7 +229,7 @@ class Tower {
         this.getDistanceFromStart = (enemy) => {
             return enemy.distanceFromStart;
         }
-        
+
         // this.getEnemies().forEach(enemy => {
         //     this.shoot(enemy);
         // });
@@ -308,7 +317,7 @@ function connection(socket, io) {
     socket.id = socket.request.session.user;
     console.log('A user connected,', socket.id);
     if (!users.find(user => user.id === socket.id)) {
-        users.push({ id: socket.id, userIndex: 'temp', socket: 'temp', gameIsRunning: true, enemies: [], towers: [], waveQueue: [], sectionQueue: [], health: 100, money: 0});
+        users.push({ id: socket.id, userIndex: 'temp', socket: 'temp', gameIsRunning: true, gameOver: false, enemies: [], towers: [], waveQueue: [], sectionQueue: [], health: 100, money: 0 });
     }
 
     const userIndex = users.findIndex(user => user.id === socket.id);
@@ -341,42 +350,131 @@ function connection(socket, io) {
             socket.emit('towerSelected', users[userIndex].towers.find(tower => tower.x === x && tower.y === y));
         }
     })
+
     socket.on('userProgram', (program, tower) => {
         const allowedFunctions = {
             getEnemies: () => users[userIndex].towers[tower].getEnemies(),
-            getDistance: (enemy) => { users[userIndex].towers[tower].getDistance(enemy) },
+            getDistance: (enemy) => users[userIndex].towers[tower].getDistance(enemy),
             shoot: (enemy) => {
-                users[userIndex].towers[tower].shoot(enemy)
+                users[userIndex].towers[tower].shoot(enemy);
             }
         };
 
-        const prohibitedStatements = ['fs', 'require', 'this']
+        const prohibitedStatements = [
+            'fs', 'require', 'this', 'constructor', 'return', 'child_process', 'CharCode',
+            'eval', 'Function', 'global', 'Buffer', 'process', 'vm', 'setTimeout',
+            'setInterval', 'Reflect', 'Proxy', 'console', 'charCodes', 'code', 'Code', 'char', 'func', 'Func', 'function'
+        ];
 
         try {
-            const normalizedProgram = program.replace(/(['"`])\s*\+\s*\1/g, ''); // Remove empty concatenations
-            const resolvedProgram = normalizedProgram.replace(/(['"`])([^'"`]+?)\1\s*\+\s*(['"`])([^'"`]+?)\3/g, (_, q1, part1, q2, part2) => {
-                if (q1 === q2) return `${part1}${part2}`; // Concatenate if quotes match
-                return _;
+            // Preprocess the program to decode obfuscation techniques
+            const preprocessProgram = (program) => {
+                // precocatinate the program
+                const normalizedProgram = program.replace(/(['"`])\s*\+\s*\1/g, ''); // Remove empty concatenations
+                var resolvedProgram = normalizedProgram.replace(/(['"`])([^'"`]+?)\1\s*\+\s*(['"`])([^'"`]+?)\3/g, (_, q1, part1, q2, part2) => {
+                    if (q1 === q2) return `${part1}${part2}`; // Concatenate if quotes match
+                    return _;
+                });
+                // Decode Unicode escape sequences
+                resolvedProgram = resolvedProgram.replace(/\\u([\dA-Fa-f]{4})/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
+
+                // Decode hexadecimal escape sequences
+                resolvedProgram = resolvedProgram.replace(/\\x([\dA-Fa-f]{2})/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
+
+                // Decode binary escape sequences
+                resolvedProgram = resolvedProgram.replace(/String\.fromCharCode\((0b[01]+(?:,\s*0b[01]+)*)\)/g, (_, binarySequence) => {
+                    return binarySequence
+                        .split(',')
+                        .map(bin => String.fromCharCode(parseInt(bin.trim(), 2)))
+                        .join('');
+                });
+
+                return resolvedProgram;
+            };
+
+            const normalizedProgram = preprocessProgram(program);
+            // Resolve template literals like `${'c'}onsole`
+            var resolvedProgram = normalizedProgram.replace(/`([^`]*?)\$\{([^}]+?)\}([^`]*?)`/g, (_, before, expression, after) => {
+                try {
+                    // Evaluate the expression inside `${...}`
+                    const resolvedExpression = eval(expression); // Use `eval` cautiously
+                    return `'${before}${resolvedExpression}${after}'`;
+                } catch (error) {
+                    console.error('Error resolving template literal:', error.message);
+                    return `'${before}${after}'`; // Fallback if evaluation fails
+                }
             });
 
-            const isProgramGood = !prohibitedStatements.some(statement => resolvedProgram.includes(statement));
-            if (isProgramGood) {
-                // Execute the program in a controlled environment
-                const sandbox = {
-                    ...allowedFunctions,
-                    tower: users[userIndex].towers[tower]
-                };
+            // Concatenate string literals
+            resolvedProgram = resolvedProgram.replace(/(['"`])([^'"`]+?)\1\s*\+\s*(['"`])([^'"`]+?)\3/g, (_, q1, part1, q2, part2) => {
+                return `'${part1}${part2}'`;
+            });
 
-                const script = new vm.Script(program);
-                const context = vm.createContext(sandbox);
-                script.runInContext(context);
+            // Validate the program using AST-based analysis
+            const validateProgram = (resolvedProgram, prohibitedStatements) => {
+                const ast = acorn.parse(resolvedProgram, { ecmaVersion: 2020 });
+                let hasProhibitedStatements = false;
+                let hasProhibitedStatementsIncluded = false
 
-                console.log('Program executed successfully.', program);
-            } else {
-                throw new Error("Prohibited statements detected in the user's program.", program);
+                walk.simple(ast, {
+                    CallExpression(node) {
+                        if (prohibitedStatements.includes(node.callee.name)) {
+                            hasProhibitedStatements = true;
+                        }
+                    },
+                    MemberExpression(node) {
+                        if (
+                            prohibitedStatements.includes(node.object.name) ||
+                            prohibitedStatements.includes(node.property.name)
+                        ) {
+                            hasProhibitedStatements = true;
+                        }
+                    },
+                    NewExpression(node) {
+                        if (prohibitedStatements.includes(node.callee.name)) {
+                            hasProhibitedStatements = true;
+                        }
+                    }
+                });
+
+                prohibitedStatements.forEach(statement => {
+                    if (resolvedProgram.includes(statement)) {
+                        hasProhibitedStatementsIncluded = true;
+                    }
+                });
+
+                if (hasProhibitedStatements || hasProhibitedStatementsIncluded) {
+                    throw new Error('Prohibited statements');
+                }
             };
+
+            validateProgram(resolvedProgram, prohibitedStatements);
+
+            // Execute the program in a controlled environment
+            const sandbox = {
+                ...allowedFunctions,
+                tower: users[userIndex].towers[tower],
+                process: undefined, // Remove access to process
+                constructor: undefined, // Remove access to constructor
+                this: undefined // Remove access to this
+            };
+
+            const script = new vm.Script(program);
+            const context = vm.createContext(sandbox);
+            script.runInContext(context, { timeout: 1000 }); // Add a timeout to prevent infinite loops
+
+            console.log('Program executed successfully.', program);
         } catch (error) {
-            console.error('Error executing user program:', error.message, error.name, error.stack);
+            console.error('Error executing user program:', 'An error occurred while executing the program.');
+            console.log(error, error.message);
+
+            if (error.message.includes('Prohibited statements')) {
+                socket.emit('codeWillNotBeExecuted', { text: 'We have found that your program has prohibited statements included and we will refuse to execute it on our server.' })
+            } else if (error.message.includes('timeout')) {
+                socket.emit('codeWillNotBeExecuted', { text: 'Your program took too long to execute and we have refused to execute it on our server.' })
+            } else if (error.message.includes('Unexpected token')) {
+                socket.emit('codeWillNotBeExecuted', { text: 'Your program has an unexpected token. '+error.message })
+            }
         }
     });
 
@@ -387,6 +485,17 @@ function connection(socket, io) {
             users[userIndex].waveQueue.push({ wave: waveCopy, userIndex });
         }
     });
+
+    socket.on('restartGame', restartWhere => {
+        users[userIndex].gameIsRunning = true
+        users[userIndex].gameOver = false
+        users[userIndex].enemies = []
+        users[userIndex].towers = []
+        users[userIndex].waveQueue = []
+        users[userIndex].sectionQueue = []
+        users[userIndex].health = 100
+        users[userIndex].money = 0
+    })
 
     socket.on('spawnEnemies', (enemyType, amount, spawnInterval, wait) => {
         users[userIndex].sectionQueue.push({ section: { enemyType, amount, spawnInterval, wait }, userIndex, timeAfterLastSpawn: 0 });
@@ -404,62 +513,64 @@ let gameLoop = setInterval(() => {
         let socket = user.socket;
         // Ensures that the user is still connected
         if (userIndex != -1) {
-            // Handles the movement of each enemy
-            user.enemies.forEach((enemy) => {
-                enemy.move();
-            });
-            // Handles the shooting of each tower
-            user.towers.forEach(tower => {
-                const currentTime = ticks;
-                if (tower.shootLocation && currentTime - tower.lastShotTime >= 5) {
-                    tower.shootLocation = null;
-                }
-                if (!tower.lastShotTime || currentTime - tower.lastShotTime >= frameRate / tower.fireRate) {
-                    tower.lastShotTime = currentTime;
-                    tower.canShoot = true;
-                }
-                tower.findTarget();
-            });
-            // Handles the wave queue and sends the sections of the wave to the section queue
-            if (user.waveQueue.length > 0) {
-                if (users[userIndex].waveQueue[0].wave.length > 0) {
-                    const request = users[userIndex].waveQueue[0];
-                    let currentSection = request.wave[0];
+            if (!user.gameOver && user.gameIsRunning) {
+                // Handles the movement of each enemy
+                user.enemies.forEach((enemy) => {
+                    enemy.move();
+                });
+                // Handles the shooting of each tower
+                user.towers.forEach(tower => {
                     const currentTime = ticks;
-                    if (currentTime - ticks >= currentSection.wait) {
-                        users[userIndex].sectionQueue.push({ section: currentSection, userIndex, timeAfterLastSpawn: 0 });
-                        request.wave.splice(0, 1);
-                        if (request.wave.length > 0) {
-                            currentSection = request.wave[0];
-                        } else {
-                            users[userIndex].waveQueue.splice(0, 1);
-                        }
+                    if (tower.shootLocation && currentTime - tower.lastShotTime >= 5) {
+                        tower.shootLocation = null;
+                    }
+                    if (!tower.lastShotTime || currentTime - tower.lastShotTime >= frameRate / tower.fireRate) {
+                        tower.lastShotTime = currentTime;
+                        tower.canShoot = true;
+                    }
+                    tower.findTarget();
+                });
+                // Handles the wave queue and sends the sections of the wave to the section queue
+                if (user.waveQueue.length > 0) {
+                    if (users[userIndex].waveQueue[0].wave.length > 0) {
+                        const request = users[userIndex].waveQueue[0];
+                        let currentSection = request.wave[0];
+                        const currentTime = ticks;
+                        if (currentTime - ticks >= currentSection.wait) {
+                            users[userIndex].sectionQueue.push({ section: currentSection, userIndex, timeAfterLastSpawn: 0 });
+                            request.wave.splice(0, 1);
+                            if (request.wave.length > 0) {
+                                currentSection = request.wave[0];
+                            } else {
+                                users[userIndex].waveQueue.splice(0, 1);
+                            }
 
+                        } else {
+                            currentSection.wait -= 1;
+                        }
                     } else {
-                        currentSection.wait -= 1;
+                        users[userIndex].waveQueue.splice(0, 1);
                     }
-                } else {
-                    users[userIndex].waveQueue.splice(0, 1);
                 }
-            }
-            // Handles the section queue and spawns enemies from the queue
-            if (user.sectionQueue.length > 0) {
-                const request = users[userIndex].sectionQueue[0];
-                let currentSection = request.section;
-                if (request.timeAfterLastSpawn >= currentSection.spawnInterval) {
-                    new Enemy(currentSection.enemyType, userIndex, { healthBorder: true });
-                    request.timeAfterLastSpawn = 0;
-                    request.section.amount--;
-                    if (request.section.amount <= 0) {
-                        users[userIndex].sectionQueue.splice(0, 1);
+                // Handles the section queue and spawns enemies from the queue
+                if (user.sectionQueue.length > 0) {
+                    const request = users[userIndex].sectionQueue[0];
+                    let currentSection = request.section;
+                    if (request.timeAfterLastSpawn >= currentSection.spawnInterval) {
+                        new Enemy(currentSection.enemyType, userIndex, { healthBorder: true });
+                        request.timeAfterLastSpawn = 0;
+                        request.section.amount--;
+                        if (request.section.amount <= 0) {
+                            users[userIndex].sectionQueue.splice(0, 1);
+                        }
+                    } else {
+                        request.timeAfterLastSpawn++;
                     }
-                } else {
-                    request.timeAfterLastSpawn++;
                 }
             }
         }
         // Sends the game data to the client
-        socket.emit('gameData', [{ grid, rows, cols }, user.enemies, user.towers]);
+        socket.emit('gameData', { gridData: { grid, rows, cols }, enemyData: user.enemies, towerData: user.towers, gameOverStatus: user.gameOver, gameRunningStatus: user.gameIsRunning });
 
 
     })

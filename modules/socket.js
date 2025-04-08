@@ -219,21 +219,58 @@ class Tower {
     }
 
     findTarget() {
-
         this.getEnemies = () => {
             return users[this.userIndex].enemies;
-        }
+        };
         this.getDistance = (enemy) => {
             return Math.sqrt(Math.pow(enemy.x - this.x, 2) + Math.pow(enemy.y - this.y, 2));
-        }
+        };
         this.getDistanceFromStart = (enemy) => {
             return enemy.distanceFromStart;
+        };
+    
+        if (this.userCode && !this.scriptIsRunning) {
+            this.scriptIsRunning = true;
+            let script = new vm.Script(this.userCode.program);
+            let context = vm.createContext(this.userCode.sandbox);
+        
+            try {
+                // Updated sanitizeData function
+                const sanitizeData = (data, seen = new WeakSet()) => {
+                    if (typeof data !== 'object' || data === null) {
+                        return data; // Return primitives and functions as-is
+                    }
+        
+                    if (seen.has(data)) {
+                        return; // Remove circular reference
+                    }
+                    seen.add(data);
+        
+                    if (Array.isArray(data)) {
+                        return data.map(item => sanitizeData(item, seen));
+                    }
+        
+                    const sanitized = {};
+                    for (const key in data) {
+                        if (typeof data[key] === 'function') {
+                            sanitized[key] = data[key]; // Preserve functions
+                        } else {
+                            sanitized[key] = sanitizeData(data[key], seen);
+                        }
+                    }
+                    return sanitized;
+                };
+        
+                this.userCode.sandbox = sanitizeData(this.userCode.sandbox);
+        
+                script.runInContext(context, { timeout: 1000 }); // Add a timeout to prevent infinite loops
+            } catch (err) {
+                console.error('Error running script:', err);
+            } finally {
+                script = null; // Delete the script after execution
+            }
+            this.scriptIsRunning = false;
         }
-
-        // this.getEnemies().forEach(enemy => {
-        //     this.shoot(enemy);
-        // });
-
     };
 
     shoot(target) {
@@ -371,7 +408,7 @@ function connection(socket, io) {
             const preprocessProgram = (program) => {
                 // Remove empty concatenations
                 let resolvedProgram = program.replace(/(['"`])\s*\+\s*\1/g, '');
-            
+
                 // Recursively resolve concatenations
                 let concatenationRegex = /(['"`])([^'"`]+?)\1\s*\+\s*(['"`])([^'"`]+?)\3/g;
                 while (concatenationRegex.test(resolvedProgram)) {
@@ -380,13 +417,13 @@ function connection(socket, io) {
                         return _;
                     });
                 }
-            
+
                 // Decode Unicode escape sequences
                 resolvedProgram = resolvedProgram.replace(/\\u([\dA-Fa-f]{4})/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
-            
+
                 // Decode hexadecimal escape sequences
                 resolvedProgram = resolvedProgram.replace(/\\x([\dA-Fa-f]{2})/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
-            
+
                 // Decode binary escape sequences
                 resolvedProgram = resolvedProgram.replace(/String\.fromCharCode\((0b[01]+(?:,\s*0b[01]+)*)\)/g, (_, binarySequence) => {
                     return binarySequence
@@ -394,7 +431,7 @@ function connection(socket, io) {
                         .map(bin => String.fromCharCode(parseInt(bin.trim(), 2)))
                         .join('');
                 });
-            
+
                 // Detect and decode user-defined ASCII character lists
                 const asciiListRegex = /const\s+(\w+)\s*=\s*\[([\d,\s]+)\];\s*String\.fromCharCode\(\.\.\.(\1)\)/g;
                 resolvedProgram = resolvedProgram.replace(asciiListRegex, (_, varName, charCodes) => {
@@ -403,7 +440,7 @@ function connection(socket, io) {
                         .map(code => String.fromCharCode(parseInt(code.trim(), 10)))
                         .join('');
                 });
-            
+
                 return resolvedProgram;
             };
 
@@ -429,7 +466,7 @@ function connection(socket, io) {
             const validateProgram = (resolvedProgram, prohibitedStatements) => {
                 const ast = acorn.parse(resolvedProgram, { ecmaVersion: 2020 });
                 let hasProhibitedStatements = false;
-            
+
                 walk.simple(ast, {
                     CallExpression(node) {
                         if (prohibitedStatements.includes(node.callee.name)) {
@@ -462,7 +499,7 @@ function connection(socket, io) {
                         }
                     }
                 });
-            
+
                 if (hasProhibitedStatements) {
                     throw new Error('Prohibited statements');
                 }
@@ -480,10 +517,7 @@ function connection(socket, io) {
                 Function: undefined,
                 eval: undefined,
             };
-
-            const script = new vm.Script(program);
-            const context = vm.createContext(sandbox);
-            script.runInContext(context, { timeout: 1000 }); // Add a timeout to prevent infinite loops
+            users[userIndex].towers[tower].userCode = { program: resolvedProgram, sandbox: sandbox };
 
             console.log('Program executed successfully.', program);
         } catch (error) {
@@ -495,7 +529,7 @@ function connection(socket, io) {
             } else if (error.message.includes('timeout')) {
                 socket.emit('codeWillNotBeExecuted', { text: 'Your program took too long to execute and we have refused to execute it on our server.' })
             } else if (error.message.includes('Unexpected token')) {
-                socket.emit('codeWillNotBeExecuted', { text: 'Your program has an unexpected token. '+error.message })
+                socket.emit('codeWillNotBeExecuted', { text: 'Your program has an unexpected token. ' + error.message })
             }
         }
     });
@@ -542,14 +576,6 @@ let gameLoop = setInterval(() => {
                 });
                 // Handles the shooting of each tower
                 user.towers.forEach(tower => {
-                    const currentTime = ticks;
-                    if (tower.shootLocation && currentTime - tower.lastShotTime >= 5) {
-                        tower.shootLocation = null;
-                    }
-                    if (!tower.lastShotTime || currentTime - tower.lastShotTime >= frameRate / tower.fireRate) {
-                        tower.lastShotTime = currentTime;
-                        tower.canShoot = true;
-                    }
                     tower.findTarget();
                 });
                 // Handles the wave queue and sends the sections of the wave to the section queue

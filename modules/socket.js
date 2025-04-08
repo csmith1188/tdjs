@@ -369,18 +369,24 @@ function connection(socket, io) {
         try {
             // Preprocess the program to decode obfuscation techniques
             const preprocessProgram = (program) => {
-                // precocatinate the program
-                const normalizedProgram = program.replace(/(['"`])\s*\+\s*\1/g, ''); // Remove empty concatenations
-                var resolvedProgram = normalizedProgram.replace(/(['"`])([^'"`]+?)\1\s*\+\s*(['"`])([^'"`]+?)\3/g, (_, q1, part1, q2, part2) => {
-                    if (q1 === q2) return `${part1}${part2}`; // Concatenate if quotes match
-                    return _;
-                });
+                // Remove empty concatenations
+                let resolvedProgram = program.replace(/(['"`])\s*\+\s*\1/g, '');
+            
+                // Recursively resolve concatenations
+                let concatenationRegex = /(['"`])([^'"`]+?)\1\s*\+\s*(['"`])([^'"`]+?)\3/g;
+                while (concatenationRegex.test(resolvedProgram)) {
+                    resolvedProgram = resolvedProgram.replace(concatenationRegex, (_, q1, part1, q2, part2) => {
+                        if (q1 === q2) return `${part1}${part2}`;
+                        return _;
+                    });
+                }
+            
                 // Decode Unicode escape sequences
                 resolvedProgram = resolvedProgram.replace(/\\u([\dA-Fa-f]{4})/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
-
+            
                 // Decode hexadecimal escape sequences
                 resolvedProgram = resolvedProgram.replace(/\\x([\dA-Fa-f]{2})/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
-
+            
                 // Decode binary escape sequences
                 resolvedProgram = resolvedProgram.replace(/String\.fromCharCode\((0b[01]+(?:,\s*0b[01]+)*)\)/g, (_, binarySequence) => {
                     return binarySequence
@@ -388,7 +394,16 @@ function connection(socket, io) {
                         .map(bin => String.fromCharCode(parseInt(bin.trim(), 2)))
                         .join('');
                 });
-
+            
+                // Detect and decode user-defined ASCII character lists
+                const asciiListRegex = /const\s+(\w+)\s*=\s*\[([\d,\s]+)\];\s*String\.fromCharCode\(\.\.\.(\1)\)/g;
+                resolvedProgram = resolvedProgram.replace(asciiListRegex, (_, varName, charCodes) => {
+                    return charCodes
+                        .split(',')
+                        .map(code => String.fromCharCode(parseInt(code.trim(), 10)))
+                        .join('');
+                });
+            
                 return resolvedProgram;
             };
 
@@ -414,8 +429,7 @@ function connection(socket, io) {
             const validateProgram = (resolvedProgram, prohibitedStatements) => {
                 const ast = acorn.parse(resolvedProgram, { ecmaVersion: 2020 });
                 let hasProhibitedStatements = false;
-                let hasProhibitedStatementsIncluded = false
-
+            
                 walk.simple(ast, {
                     CallExpression(node) {
                         if (prohibitedStatements.includes(node.callee.name)) {
@@ -434,16 +448,22 @@ function connection(socket, io) {
                         if (prohibitedStatements.includes(node.callee.name)) {
                             hasProhibitedStatements = true;
                         }
+                    },
+                    ForOfStatement(node) {
+                        // Detect loops constructing strings dynamically
+                        if (node.right.type === 'Identifier' && node.body.type === 'BlockStatement') {
+                            hasProhibitedStatements = true;
+                        }
+                    },
+                    ObjectExpression(node) {
+                        // Detect suspicious mappings like `cc`
+                        if (node.properties.some(prop => typeof prop.key.value === 'string' && typeof prop.value.value === 'string')) {
+                            hasProhibitedStatements = true;
+                        }
                     }
                 });
-
-                prohibitedStatements.forEach(statement => {
-                    if (resolvedProgram.includes(statement)) {
-                        hasProhibitedStatementsIncluded = true;
-                    }
-                });
-
-                if (hasProhibitedStatements || hasProhibitedStatementsIncluded) {
+            
+                if (hasProhibitedStatements) {
                     throw new Error('Prohibited statements');
                 }
             };
@@ -454,9 +474,11 @@ function connection(socket, io) {
             const sandbox = {
                 ...allowedFunctions,
                 tower: users[userIndex].towers[tower],
-                process: undefined, // Remove access to process
-                constructor: undefined, // Remove access to constructor
-                this: undefined // Remove access to this
+                process: undefined,
+                constructor: undefined,
+                this: undefined,
+                Function: undefined,
+                eval: undefined,
             };
 
             const script = new vm.Script(program);

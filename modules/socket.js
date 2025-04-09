@@ -228,28 +228,28 @@ class Tower {
         this.getDistanceFromStart = (enemy) => {
             return enemy.distanceFromStart;
         };
-    
+
         if (this.userCode && !this.scriptIsRunning) {
             this.scriptIsRunning = true;
             let script = new vm.Script(this.userCode.program);
             let context = vm.createContext(this.userCode.sandbox);
-        
+
             try {
                 // Updated sanitizeData function
                 const sanitizeData = (data, seen = new WeakSet()) => {
                     if (typeof data !== 'object' || data === null) {
                         return data; // Return primitives and functions as-is
                     }
-        
+
                     if (seen.has(data)) {
                         return; // Remove circular reference
                     }
                     seen.add(data);
-        
+
                     if (Array.isArray(data)) {
                         return data.map(item => sanitizeData(item, seen));
                     }
-        
+
                     const sanitized = {};
                     for (const key in data) {
                         if (typeof data[key] === 'function') {
@@ -260,9 +260,9 @@ class Tower {
                     }
                     return sanitized;
                 };
-        
+
                 this.userCode.sandbox = sanitizeData(this.userCode.sandbox);
-        
+
                 script.runInContext(context, { timeout: 1000 }); // Add a timeout to prevent infinite loops
             } catch (err) {
                 console.error('Error running script:', err);
@@ -404,12 +404,9 @@ function connection(socket, io) {
         ];
 
         try {
-            // Preprocess the program to decode obfuscation techniques
             const preprocessProgram = (program) => {
-                // Remove empty concatenations
                 let resolvedProgram = program.replace(/(['"`])\s*\+\s*\1/g, '');
 
-                // Recursively resolve concatenations
                 let concatenationRegex = /(['"`])([^'"`]+?)\1\s*\+\s*(['"`])([^'"`]+?)\3/g;
                 while (concatenationRegex.test(resolvedProgram)) {
                     resolvedProgram = resolvedProgram.replace(concatenationRegex, (_, q1, part1, q2, part2) => {
@@ -418,65 +415,84 @@ function connection(socket, io) {
                     });
                 }
 
-                // Decode Unicode escape sequences
                 resolvedProgram = resolvedProgram.replace(/\\u([\dA-Fa-f]{4})/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
-
-                // Decode hexadecimal escape sequences
                 resolvedProgram = resolvedProgram.replace(/\\x([\dA-Fa-f]{2})/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
-
-                // Decode binary escape sequences
-                resolvedProgram = resolvedProgram.replace(/String\.fromCharCode\((0b[01]+(?:,\s*0b[01]+)*)\)/g, (_, binarySequence) => {
-                    return binarySequence
-                        .split(',')
-                        .map(bin => String.fromCharCode(parseInt(bin.trim(), 2)))
-                        .join('');
-                });
-
-                // Detect and decode user-defined ASCII character lists
-                const asciiListRegex = /const\s+(\w+)\s*=\s*\[([\d,\s]+)\];\s*String\.fromCharCode\(\.\.\.(\1)\)/g;
-                resolvedProgram = resolvedProgram.replace(asciiListRegex, (_, varName, charCodes) => {
-                    return charCodes
-                        .split(',')
-                        .map(code => String.fromCharCode(parseInt(code.trim(), 10)))
-                        .join('');
-                });
 
                 return resolvedProgram;
             };
 
             const normalizedProgram = preprocessProgram(program);
-            // Resolve template literals like `${'c'}onsole`
-            var resolvedProgram = normalizedProgram.replace(/`([^`]*?)\$\{([^}]+?)\}([^`]*?)`/g, (_, before, expression, after) => {
-                try {
-                    // Evaluate the expression inside `${...}`
-                    const resolvedExpression = eval(expression); // Use `eval` cautiously
-                    return `'${before}${resolvedExpression}${after}'`;
-                } catch (error) {
-                    console.error('Error resolving template literal:', error.message);
-                    return `'${before}${after}'`; // Fallback if evaluation fails
+
+            const detectExcessiveConcatenation = (ast) => {
+                let concatenationCount = 0;
+            
+                walk.simple(ast, {
+                    AssignmentExpression(node) {
+                        if (
+                            node.operator === '+=' &&
+                            node.left.type === 'Identifier' &&
+                            node.right.type === 'Literal' &&
+                            typeof node.right.value === 'string'
+                        ) {
+                            concatenationCount++;
+                        }
+                    }
+                });
+            
+                if (concatenationCount > 3) { // Threshold for excessive concatenation
+                    throw new Error('Excessive string concatenation detected');
                 }
-            });
+            };
 
-            // Concatenate string literals
-            resolvedProgram = resolvedProgram.replace(/(['"`])([^'"`]+?)\1\s*\+\s*(['"`])([^'"`]+?)\3/g, (_, q1, part1, q2, part2) => {
-                return `'${part1}${part2}'`;
-            });
+            const detectObfuscation = (program) => {
+                const unicodeEscapeRegex = /\\u[\dA-Fa-f]{4}/g;
+                const hexEscapeRegex = /\\x[\dA-Fa-f]{2}/g;
+            
+                if (unicodeEscapeRegex.test(program) || hexEscapeRegex.test(program)) {
+                    throw new Error('Obfuscation detected (escape sequences)');
+                }
+            };
 
-            // Validate the program using AST-based analysis
+            const detectDynamicExecution = (ast) => {
+                let hasDynamicExecution = false;
+            
+                walk.simple(ast, {
+                    MemberExpression(node) {
+                        if (node.computed && node.property.type === 'Identifier') {
+                            hasDynamicExecution = true;
+                        }
+                    },
+                    CallExpression(node) {
+                        if (node.callee.type === 'MemberExpression' && node.callee.computed) {
+                            hasDynamicExecution = true;
+                        }
+                    }
+                });
+            
+                if (hasDynamicExecution) {
+                    throw new Error('Dynamic execution detected');
+                }
+            };
+
             const validateProgram = (resolvedProgram, prohibitedStatements) => {
                 const ast = acorn.parse(resolvedProgram, { ecmaVersion: 2020 });
+            
                 let hasProhibitedStatements = false;
-
+            
                 walk.simple(ast, {
                     CallExpression(node) {
-                        if (prohibitedStatements.includes(node.callee.name)) {
+                        if (
+                            node.callee.type === 'Identifier' &&
+                            node.callee.name === 'Function' &&
+                            node.arguments.some(arg => arg.value && arg.value.includes('return this'))
+                        ) {
                             hasProhibitedStatements = true;
                         }
                     },
                     MemberExpression(node) {
                         if (
-                            prohibitedStatements.includes(node.object.name) ||
-                            prohibitedStatements.includes(node.property.name)
+                            (node.object.name === 'global' && prohibitedStatements.includes(node.property.value)) ||
+                            (node.object.type === 'ThisExpression' && prohibitedStatements.includes(node.property.value))
                         ) {
                             hasProhibitedStatements = true;
                         }
@@ -485,39 +501,36 @@ function connection(socket, io) {
                         if (prohibitedStatements.includes(node.callee.name)) {
                             hasProhibitedStatements = true;
                         }
-                    },
-                    ForOfStatement(node) {
-                        // Detect loops constructing strings dynamically
-                        if (node.right.type === 'Identifier' && node.body.type === 'BlockStatement') {
-                            hasProhibitedStatements = true;
-                        }
-                    },
-                    ObjectExpression(node) {
-                        // Detect suspicious mappings like `cc`
-                        if (node.properties.some(prop => typeof prop.key.value === 'string' && typeof prop.value.value === 'string')) {
-                            hasProhibitedStatements = true;
-                        }
                     }
                 });
-
+            
                 if (hasProhibitedStatements) {
                     throw new Error('Prohibited statements');
                 }
+            
+                // Additional checks
+                detectExcessiveConcatenation(ast);
+                detectDynamicExecution(ast);
+                detectObfuscation(resolvedProgram);
             };
 
-            validateProgram(resolvedProgram, prohibitedStatements);
+            validateProgram(normalizedProgram, prohibitedStatements);
 
-            // Execute the program in a controlled environment
             const sandbox = {
                 ...allowedFunctions,
                 tower: users[userIndex].towers[tower],
+                global: undefined,
                 process: undefined,
                 constructor: undefined,
                 this: undefined,
                 Function: undefined,
                 eval: undefined,
             };
-            users[userIndex].towers[tower].userCode = { program: resolvedProgram, sandbox: sandbox };
+            // users[userIndex].towers[tower].userCode = { program: resolvedProgram, sandbox: sandbox };
+            console.log('Normalized Program:', normalizedProgram);
+            let script = new vm.Script(program);
+            let context = vm.createContext(sandbox);
+            script.runInContext(context, { timeout: 1000 }); // Add a timeout to prevent infinite loops
 
             console.log('Program executed successfully.', program);
         } catch (error) {

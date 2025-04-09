@@ -85,28 +85,28 @@ class Enemy {
                 this.maxHealth = this.health;
                 this.speed = 40;
                 this.color = 'white';
-                this.size = 45;
+                this.size = 32;
                 break;
             case 'fast':
                 this.health = 5;
                 this.maxHealth = 5;
                 this.speed = 60;
                 this.color = 'dodgerblue';
-                this.size = 45;
+                this.size = 32;
                 break;
             case 'slow':
                 this.health = 20;
                 this.maxHealth = 20;
                 this.speed = 30;
                 this.color = 'green';
-                this.size = 45;
+                this.size = 32;
                 break;
             case 'boss':
                 this.health = 100;
                 this.maxHealth = 100;
                 this.speed = 10;
                 this.color = 'white';
-                this.size = 55;
+                this.size = 32;
                 break;
             // Add other enemy types as needed
         }
@@ -296,14 +296,86 @@ function calculatePath(grid) {
 
         if (xDiff !== 0) {
             for (let j = 0; j <= Math.abs(xDiff); j++) {
-                grid[start.y][start.x + j * xDirection].hasPath = true;
+                const cell = grid[start.y][start.x + j * xDirection];
+                cell.hasPath = true;
+
+                // Set direction for horizontal movement
+                cell.direction = 'left-right';
             }
         } else {
             for (let j = 0; j <= Math.abs(yDiff); j++) {
-                grid[start.y + j * yDirection][start.x].hasPath = true;
+                const cell = grid[start.y + j * yDirection][start.x];
+                cell.hasPath = true;
+
+                // Set direction for vertical movement
+                cell.direction = 'up-down';
+            }
+        }
+
+        // Adjust directions for intermediate cells
+        for (let i = 1; i < pathPoint.length - 1; i++) {
+            const prev = pathPoint[i - 1];
+            const curr = pathPoint[i];
+            const next = pathPoint[i + 1];
+
+            const prevDirection = {
+                x: curr.x - prev.x,
+                y: curr.y - prev.y,
+            };
+
+            const nextDirection = {
+                x: next.x - curr.x,
+                y: next.y - curr.y,
+            };
+
+            const cell = grid[curr.y][curr.x];
+
+
+            // Helper function to normalize direction values to -1, 0, or 1
+            function normalize(value) {
+                if (value > 0) return 1;
+                if (value < 0) return -1;
+                return 0;
+            }
+
+            // Normalize prevDirection and nextDirection
+            const normalizedPrevDirection = {
+                x: normalize(prevDirection.x),
+                y: normalize(prevDirection.y),
+            };
+
+            const normalizedNextDirection = {
+                x: normalize(nextDirection.x),
+                y: normalize(nextDirection.y),
+            };
+
+            // Determine the direction based on normalized previous and next points
+            if (normalizedPrevDirection.x !== 0 && normalizedNextDirection.x !== 0) {
+                cell.direction = 'left-right'; // Horizontal movement
+            } else if (normalizedPrevDirection.y !== 0 && normalizedNextDirection.y !== 0) {
+                cell.direction = 'up-down'; // Vertical movement
+            } else if (normalizedPrevDirection.x === 1 && normalizedNextDirection.y === 1) {
+                cell.direction = 'down-left'; // Turn from right to down
+            } else if (normalizedPrevDirection.x === 1 && normalizedNextDirection.y === -1) {
+                cell.direction = 'up-left'; // Turn from right to up
+            } else if (normalizedPrevDirection.x === -1 && normalizedNextDirection.y === 1) {
+                cell.direction = 'down-left'; // Turn from left to down
+            } else if (normalizedPrevDirection.x === -1 && normalizedNextDirection.y === -1) {
+                cell.direction = 'up-left'; // Turn from left to up
+            } else if (normalizedPrevDirection.y === 1 && normalizedNextDirection.x === 1) {
+                cell.direction = 'up-right'; // Turn from down to right
+            } else if (normalizedPrevDirection.y === 1 && normalizedNextDirection.x === -1) {
+                cell.direction = 'up-left'; // Turn from down to left
+            } else if (normalizedPrevDirection.y === -1 && normalizedNextDirection.x === 1) {
+                cell.direction = 'down-right'; // Turn from up to right
+            } else if (normalizedPrevDirection.y === -1 && normalizedNextDirection.x === -1) {
+                cell.direction = 'down-left'; // Turn from up to left
+            } else {
+                cell.direction = 'four-way'; // Default to four-way movement
             }
         }
     }
+
     return grid;
 }
 
@@ -473,7 +545,7 @@ function connection(socket, io) {
             } else if (error.message.includes('timeout')) {
                 socket.emit('codeWillNotBeExecuted', { text: 'Your program took too long to execute and we have refused to execute it on our server.' })
             } else if (error.message.includes('Unexpected token')) {
-                socket.emit('codeWillNotBeExecuted', { text: 'Your program has an unexpected token. '+error.message })
+                socket.emit('codeWillNotBeExecuted', { text: 'Your program has an unexpected token. ' + error.message })
             }
         }
     });

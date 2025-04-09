@@ -1,15 +1,12 @@
 const vm = require('vm')
 const acorn = require('acorn')
 const walk = require('acorn-walk');
-const { text } = require('express');
 const frameRate = 60;
 const pathPoint = [{ y: 2, x: 0 }, { y: 2, x: 8 }, { y: 12, x: 8 }, { y: 12, x: 16 }, { y: 2, x: 16 }, { y: 2, x: 24 }, { y: 18, x: 24 }, { y: 18, x: 31 }];
 const pathPoint2 = [{ y: 2, x: 0 }, { y: 2, x: 25 }, { y: 6, x: 25 }, { y: 6, x: 8 }, { y: 10, x: 8 }, { y: 10, x: 16 }, { y: 14, x: 16 }, { y: 14, x: 24 }, { y: 18, x: 24 }, { y: 18, x: 31 }];
 const pathPoint3 = [{ y: 2, x: 0 }, { y: 2, x: 3 }, { y: 6, x: 3 }, { y: 6, x: 5 }, { y: 10, x: 5 }, { y: 10, x: 7 }, { y: 6, x: 7 }, { y: 6, x: 9 }, { y: 10, x: 9 }, { y: 10, x: 11 }, { y: 6, x: 11 }, { y: 6, x: 13 }, { y: 10, x: 13 }, { y: 10, x: 15 }, { y: 6, x: 15 }, { y: 6, x: 17 }, { y: 10, x: 17 }, { y: 10, x: 19 }, { y: 6, x: 19 }, { y: 6, x: 21 }, { y: 10, x: 21 }, { y: 10, x: 23 }, { y: 6, x: 23 }, { y: 6, x: 25 }, { y: 10, x: 25 }, { y: 10, x: 27 }, { y: 6, x: 27 }, { y: 6, x: 29 }, { y: 10, x: 29 }, { y: 10, x: 31 }, { y: 18, x: 31 }];
 const pathPoint4 = [{ y: 2, x: 0 }, { y: 2, x: 15 }, { y: 10, x: 15 }, { y: 10, x: 11 }, { y: 6, x: 11 }, { y: 6, x: 19 }, { y: 10, x: 19 }, { y: 10, x: 15 }, { y: 18, x: 15 }, { y: 18, x: 31 }];
 const pathPoint5 = [{ y: 2, x: 0 }, { y: 2, x: 15 }, { y: 10, x: 15 }, { y: 10, x: 11 }, { y: 6, x: 11 }, { y: 6, x: 19 }, { y: 2, x: 19 }, { y: 2, x: 15 }, { y: 18, x: 15 }, { y: 18, x: 31 }];
-var enemies = []
-var towers = []
 var users = []
 var ticks = 0;
 
@@ -185,8 +182,8 @@ class Tower {
         this.y = y;
         this.index = users[userIndex].towers.length;
         this.userIndex = userIndex;
+        this.lastShotTime = 0;
         this.userCode = null;
-        this.canShoot = true;
         switch (presetTower) {
             case 'basic':
                 this.size = 10
@@ -218,19 +215,32 @@ class Tower {
         this.targetingType = 'first';
     }
 
-    findTarget() {
+    findTarget(ticks) {
+        this.currentTime = ticks;
+
         this.getEnemies = () => {
             return users[this.userIndex].enemies;
         };
+
         this.getDistance = (enemy) => {
             return Math.sqrt(Math.pow(enemy.x - this.x, 2) + Math.pow(enemy.y - this.y, 2));
         };
+
         this.getDistanceFromStart = (enemy) => {
             return enemy.distanceFromStart;
         };
 
+        console.log(this.currentTime - this.lastShotTime, this.fireRate * (1000 / frameRate), this.currentTime - this.lastShotTime >= (this.fireRate * (1000 / frameRate)));
+        this.towerCanShoot = () => {
+            if (this.currentTime - this.lastShotTime >= (this.fireRate / (1000 / frameRate))) {
+                return true;
+            } else {
+                return false;
+            }
+        };
         if (this.userCode && !this.scriptIsRunning) {
             this.scriptIsRunning = true;
+
             let script = new vm.Script(this.userCode.program);
             let context = vm.createContext(this.userCode.sandbox);
 
@@ -263,7 +273,7 @@ class Tower {
 
                 this.userCode.sandbox = sanitizeData(this.userCode.sandbox);
 
-                script.runInContext(context, { timeout: 1000 }); // Add a timeout to prevent infinite loops
+                script.runInContext(context, { timeout: 10 }); // Add a timeout to prevent infinite loops
             } catch (err) {
                 console.error('Error running script:', err);
             } finally {
@@ -273,14 +283,15 @@ class Tower {
         }
     };
 
-    shoot(target) {
+    shoot(target, currentTime) {
         const enemyInstance = target;
 
         if (!enemyInstance) {
             this.shootLocation = null;
             return;
         }
-        this.canShoot = false;
+
+        this.lastShotTime = currentTime;
         this.shootLocation = { x: enemyInstance.x, y: enemyInstance.y };
         if (enemyInstance.health <= this.damage) {
             this.damageCount += enemyInstance.health;
@@ -289,6 +300,7 @@ class Tower {
         }
         enemyInstance.health -= this.damage;
         if (enemyInstance.health <= 0) {
+            users[this.userIndex].money += enemyInstance.maxHealth;
             const index = users[this.userIndex].enemies.indexOf(enemyInstance);
             if (index > -1) {
                 users[this.userIndex].enemies.splice(index, 1);
@@ -354,7 +366,7 @@ function connection(socket, io) {
     socket.id = socket.request.session.user;
     console.log('A user connected,', socket.id);
     if (!users.find(user => user.id === socket.id)) {
-        users.push({ id: socket.id, userIndex: 'temp', socket: 'temp', gameIsRunning: true, gameOver: false, enemies: [], towers: [], waveQueue: [], sectionQueue: [], health: 100, money: 0, wave: 0 });
+        users.push({ id: socket.id, userIndex: 'temp', socket: 'temp', gameIsRunning: true, gameOver: false, enemies: [], towers: [], currentWave: -1, waveQueue: [], sectionQueue: [], health: 100, money: 0, wave: 0 });
     }
 
     const userIndex = users.findIndex(user => user.id === socket.id);
@@ -393,8 +405,9 @@ function connection(socket, io) {
             getEnemies: () => users[userIndex].towers[tower].getEnemies(),
             getDistance: (enemy) => users[userIndex].towers[tower].getDistance(enemy),
             shoot: (enemy) => {
-                users[userIndex].towers[tower].shoot(enemy);
-            }
+                users[userIndex].towers[tower].shoot(enemy, ticks);
+            },
+            towerCanShoot: () => users[userIndex].towers[tower].towerCanShoot()
         };
 
         const prohibitedStatements = [
@@ -418,6 +431,16 @@ function connection(socket, io) {
                 resolvedProgram = resolvedProgram.replace(/\\u([\dA-Fa-f]{4})/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
                 resolvedProgram = resolvedProgram.replace(/\\x([\dA-Fa-f]{2})/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
 
+                // Detect and decode Base64 strings
+                const base64Regex = /Buffer\.from\(['"`]([A-Za-z0-9+/=]+)['"`],\s*['"`]base64['"`]\)\.toString\(\)/g;
+                resolvedProgram = resolvedProgram.replace(base64Regex, (_, encoded) => {
+                    try {
+                        return Buffer.from(encoded, 'base64').toString();
+                    } catch {
+                        return ''; // Ignore invalid Base64 strings
+                    }
+                });
+
                 return resolvedProgram;
             };
 
@@ -425,7 +448,7 @@ function connection(socket, io) {
 
             const detectExcessiveConcatenation = (ast) => {
                 let concatenationCount = 0;
-            
+
                 walk.simple(ast, {
                     AssignmentExpression(node) {
                         if (
@@ -438,7 +461,7 @@ function connection(socket, io) {
                         }
                     }
                 });
-            
+
                 if (concatenationCount > 3) { // Threshold for excessive concatenation
                     throw new Error('Excessive string concatenation detected');
                 }
@@ -447,7 +470,7 @@ function connection(socket, io) {
             const detectObfuscation = (program) => {
                 const unicodeEscapeRegex = /\\u[\dA-Fa-f]{4}/g;
                 const hexEscapeRegex = /\\x[\dA-Fa-f]{2}/g;
-            
+
                 if (unicodeEscapeRegex.test(program) || hexEscapeRegex.test(program)) {
                     throw new Error('Obfuscation detected (escape sequences)');
                 }
@@ -455,7 +478,7 @@ function connection(socket, io) {
 
             const detectDynamicExecution = (ast) => {
                 let hasDynamicExecution = false;
-            
+
                 walk.simple(ast, {
                     MemberExpression(node) {
                         if (node.computed && node.property.type === 'Identifier') {
@@ -468,7 +491,7 @@ function connection(socket, io) {
                         }
                     }
                 });
-            
+
                 if (hasDynamicExecution) {
                     throw new Error('Dynamic execution detected');
                 }
@@ -476,23 +499,30 @@ function connection(socket, io) {
 
             const validateProgram = (resolvedProgram, prohibitedStatements) => {
                 const ast = acorn.parse(resolvedProgram, { ecmaVersion: 2020 });
-            
+
                 let hasProhibitedStatements = false;
-            
+
                 walk.simple(ast, {
+                    WithStatement(node) {
+                        throw new Error('Prohibited statement: "with" is not allowed.');
+                    },
+                    WhileStatement(node) {
+                        if (node.test.type === 'Literal' && node.test.value === true) {
+                            throw new Error('Prohibited statement: Infinite loop detected.');
+                        }
+                    },
                     CallExpression(node) {
                         if (
                             node.callee.type === 'Identifier' &&
-                            node.callee.name === 'Function' &&
-                            node.arguments.some(arg => arg.value && arg.value.includes('return this'))
+                            node.callee.name === 'Function'
                         ) {
-                            hasProhibitedStatements = true;
+                            throw new Error('Prohibited statement: Function constructor is not allowed.');
                         }
                     },
                     MemberExpression(node) {
                         if (
-                            (node.object.name === 'global' && prohibitedStatements.includes(node.property.value)) ||
-                            (node.object.type === 'ThisExpression' && prohibitedStatements.includes(node.property.value))
+                            node.object.name === 'global' &&
+                            prohibitedStatements.includes(node.property.name)
                         ) {
                             hasProhibitedStatements = true;
                         }
@@ -503,11 +533,11 @@ function connection(socket, io) {
                         }
                     }
                 });
-            
+
                 if (hasProhibitedStatements) {
-                    throw new Error('Prohibited statements');
+                    throw new Error('Prohibited statements detected.');
                 }
-            
+
                 // Additional checks
                 detectExcessiveConcatenation(ast);
                 detectDynamicExecution(ast);
@@ -525,24 +555,36 @@ function connection(socket, io) {
                 this: undefined,
                 Function: undefined,
                 eval: undefined,
+                setTimeout: undefined,
+                setInterval: undefined,
+                Reflect: undefined,
+                Proxy: undefined,
+                Buffer: undefined,
+                console: undefined,
+                vm: undefined,
+                require: undefined,
+                child_process: undefined,
             };
-            // users[userIndex].towers[tower].userCode = { program: resolvedProgram, sandbox: sandbox };
-            console.log('Normalized Program:', normalizedProgram);
-            let script = new vm.Script(program);
-            let context = vm.createContext(sandbox);
-            script.runInContext(context, { timeout: 1000 }); // Add a timeout to prevent infinite loops
+            // Object.freeze(Object.prototype);
 
+            // Object.defineProperty(Function.prototype, 'constructor', {
+            //     value: undefined,
+            //     writable: false,
+            //     configurable: false,
+            // });
+            // console.log('Normalized Program:', normalizedProgram);
+            // let script = new vm.Script(program);
+            // let context = vm.createContext(sandbox);
+            // script.runInContext(context, { timeout: 250 });
+            users[userIndex].towers[tower].userCode = { program: program, sandbox: sandbox };
             console.log('Program executed successfully.', program);
         } catch (error) {
-            console.error('Error executing user program:', 'An error occurred while executing the program.');
-            console.log(error, error.message);
-
-            if (error.message.includes('Prohibited statements')) {
-                socket.emit('codeWillNotBeExecuted', { text: 'We have found that your program has prohibited statements included and we will refuse to execute it on our server.' })
-            } else if (error.message.includes('timeout')) {
-                socket.emit('codeWillNotBeExecuted', { text: 'Your program took too long to execute and we have refused to execute it on our server.' })
-            } else if (error.message.includes('Unexpected token')) {
-                socket.emit('codeWillNotBeExecuted', { text: 'Your program has an unexpected token. ' + error.message })
+            if (error.message.includes('Script execution timed out')) {
+                console.error('Error: Script execution timed out.');
+                socket.emit('errorMessage', 'Your program took too long to execute.');
+            } else {
+                console.error('Error executing user program:', error.message);
+                socket.emit('errorMessage', 'An error occurred while executing the program.');
             }
         }
     });
@@ -589,7 +631,7 @@ let gameLoop = setInterval(() => {
                 });
                 // Handles the shooting of each tower
                 user.towers.forEach(tower => {
-                    tower.findTarget();
+                    tower.findTarget(ticks);
                 });
                 // Handles the wave queue and sends the sections of the wave to the section queue
                 if (user.waveQueue.length > 0) {
@@ -631,7 +673,7 @@ let gameLoop = setInterval(() => {
             }
         }
         // Sends the game data to the client
-        socket.emit('gameData', { gridData: { grid, rows, cols }, enemyData: user.enemies, towerData: user.towers, gameOverStatus: user.gameOver, gameRunningStatus: user.gameIsRunning });
+        socket.emit('gameData', { gridData: { grid, rows, cols }, enemyData: user.enemies, towerData: user.towers, baseHealth: user.health, money: user.money, wave: user.currentWave, gameOverStatus: user.gameOver, gameRunningStatus: user.gameIsRunning });
 
 
     })

@@ -151,6 +151,13 @@ socket.on('gameData', (data) => {
     const towers = data.towerData
     const gameOver = data.gameOverStatus
     const gameRunning = data.gameRunningStatus
+    var baseHealth = data.baseHealth
+    var money = data.money
+    var wave = data.wave
+
+    document.getElementById('baseHealth').innerHTML = 'Health: ' + baseHealth;
+    document.getElementById('money').innerHTML = 'Bitpogs: ' + money;
+    document.getElementById('wave').innerHTML = 'Wave: ' + (wave+1) + ' / 10';
 
     gameBoard.width = cols * spacing;
     gameBoard.height = rows * spacing;
@@ -191,10 +198,7 @@ socket.on('towerSelected', (data) => {
         if (selectedTower.userCode != null) {
             programMenu.value = selectedTower.userCode;
             towerRange.value = selectedTower.range;
-        } else {
-            programMenu.value = '';
-            towerRange.value = '';
-        }
+        };
 
     } else {
         selectedTower = null

@@ -230,7 +230,6 @@ class Tower {
             return enemy.distanceFromStart;
         };
 
-        console.log(this.currentTime - this.lastShotTime, this.fireRate * (1000 / frameRate), this.currentTime - this.lastShotTime >= (this.fireRate * (1000 / frameRate)));
         this.towerCanShoot = () => {
             if (this.currentTime - this.lastShotTime >= (this.fireRate / (1000 / frameRate))) {
                 return true;
@@ -499,9 +498,7 @@ function connection(socket, io) {
 
             const validateProgram = (resolvedProgram, prohibitedStatements) => {
                 const ast = acorn.parse(resolvedProgram, { ecmaVersion: 2020 });
-
-                let hasProhibitedStatements = false;
-
+            
                 walk.simple(ast, {
                     WithStatement(node) {
                         throw new Error('Prohibited statement: "with" is not allowed.');
@@ -518,26 +515,56 @@ function connection(socket, io) {
                         ) {
                             throw new Error('Prohibited statement: Function constructor is not allowed.');
                         }
-                    },
-                    MemberExpression(node) {
                         if (
-                            node.object.name === 'global' &&
-                            prohibitedStatements.includes(node.property.name)
+                            node.callee.type === 'Identifier' &&
+                            node.callee.name === 'String'
                         ) {
-                            hasProhibitedStatements = true;
+                            throw new Error('Prohibited statement: String constructor is not allowed.');
                         }
                     },
                     NewExpression(node) {
-                        if (prohibitedStatements.includes(node.callee.name)) {
-                            hasProhibitedStatements = true;
+                        if (node.callee.name === 'String') {
+                            throw new Error('Prohibited statement: Use of "new String()" is not allowed.');
+                        }
+                    },
+                    BinaryExpression(node) {
+                        if (
+                            node.operator === '+' &&
+                            (node.left.type === 'Literal' && typeof node.left.value === 'string' ||
+                             node.right.type === 'Literal' && typeof node.right.value === 'string')
+                        ) {
+                            throw new Error('Prohibited statement: String concatenation is not allowed.');
+                        }
+                    },
+                    AssignmentExpression(node) {
+                        if (
+                            node.operator === '+=' &&
+                            node.left.type === 'Identifier' &&
+                            node.right.type === 'Literal' &&
+                            typeof node.right.value === 'string'
+                        ) {
+                            throw new Error('Prohibited statement: String concatenation using "+=" is not allowed.');
+                        }
+                    },
+                    TemplateLiteral(node) {
+                        throw new Error('Prohibited statement: Template literals are not allowed.');
+                    },
+                    MemberExpression(node) {
+                        if (
+                            node.object.type === 'Identifier' &&
+                            node.property.type === 'Identifier' &&
+                            ['toString', 'concat', 'slice', 'substr', 'substring', 'padStart', 'padEnd', 'repeat'].includes(node.property.name)
+                        ) {
+                            throw new Error(`Prohibited statement: Use of string method "${node.property.name}" is not allowed.`);
+                        }
+                    },
+                    Literal(node) {
+                        if (typeof node.value === 'string') {
+                            throw new Error('Prohibited statement: String literals are not allowed.');
                         }
                     }
                 });
-
-                if (hasProhibitedStatements) {
-                    throw new Error('Prohibited statements detected.');
-                }
-
+            
                 // Additional checks
                 detectExcessiveConcatenation(ast);
                 detectDynamicExecution(ast);
@@ -632,6 +659,8 @@ let gameLoop = setInterval(() => {
                 // Handles the shooting of each tower
                 user.towers.forEach(tower => {
                     tower.findTarget(ticks);
+                    console.log(tower.towerCanShoot());
+                    
                 });
                 // Handles the wave queue and sends the sections of the wave to the section queue
                 if (user.waveQueue.length > 0) {

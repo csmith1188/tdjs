@@ -1,19 +1,18 @@
 const socket = io();
-const spacing = 32; //change this to change the size of the grid cell and quality of each cell
-var selectedBuyableTower = null
-
-var selectedTower = null
+const spacing = 32; // Change this to adjust the size of the grid cell and quality of each cell
+var selectedBuyableTower = null;
+var selectedTower = null;
 
 const gameBoard = document.getElementById('gameBoard');
 const ctx = gameBoard.getContext('2d');
 var towerShop = document.getElementById("gameShopMenu");
-towerList = [
+var towerList = [];
+let previewTower = null; // To store the current preview tower position
 
-    'basic', 'sniper', 'machineGun'
-
-];
-getShopItems(programBox);
-
+socket.emit('getTowerList');
+socket.on('towerList', (data) => {
+    getShopItems(data);
+});
 
 function drawGrid(grid, rows, cols) {
     for (let i = 0; i < rows; i++) {
@@ -47,7 +46,6 @@ function drawEnemy(enemy) {
     }
 }
 
-
 function selectTower(rows, cols) {
     const selectHandler = (event) => {
         const rect = gameBoard.getBoundingClientRect();
@@ -55,13 +53,12 @@ function selectTower(rows, cols) {
         const cellHeight = rect.height / rows;
         const x = Math.floor((event.clientX - (rect.left + window.scrollX)) / cellWidth);
         const y = Math.floor((event.clientY - (rect.top + window.scrollY)) / cellHeight);
-        socket.emit('towerSelect', { x, y })
-    }
+        socket.emit('towerSelect', { x, y });
+    };
 
     gameBoard.addEventListener('click', selectHandler);
 }
-selectTower(20, 32)
-
+selectTower(20, 32);
 
 function drawTower(tower) {
     const { x, y, color, size } = tower;
@@ -82,22 +79,72 @@ function drawTower(tower) {
         ctx.moveTo(tower.x * spacing + spacing / 2, tower.y * spacing + spacing / 2);
         ctx.lineTo(tower.shootLocation.x * spacing + spacing / 2, tower.shootLocation.y * spacing + spacing / 2);
         ctx.stroke();
-    } else {
-        return;
     }
 }
 
+function drawPreviewTower() {
+    if (!previewTower) return;
 
+    const { x, y, name } = previewTower;
+    ctx.globalAlpha = 0.5; // Set transparency
+    ctx.fillStyle = 'gray'; // Example color for the transparent tower
+    ctx.fillRect(x * spacing, y * spacing, spacing, spacing);
+    ctx.globalAlpha = 1.0; // Reset transparency
+}
 
+function handleMouseMove(event) {
+    if (!selectedBuyableTower) return;
 
-function getShopItems() {
+    const rect = gameBoard.getBoundingClientRect();
+    const cellWidth = rect.width / 32;
+    const cellHeight = rect.height / 20;
+    const x = Math.floor((event.clientX - (rect.left + window.scrollX)) / cellWidth);
+    const y = Math.floor((event.clientY - (rect.top + window.scrollY)) / cellHeight);
+
+    // Update the preview tower position
+    previewTower = { x, y, name: selectedBuyableTower };
+
+    // Redraw the game board to include the preview
+    drawGame();
+}
+
+function handleTowerPlacement(event) {
+    const rect = gameBoard.getBoundingClientRect();
+    const cellWidth = rect.width / 32;
+    const cellHeight = rect.height / 20;
+    const x = Math.floor((event.clientX - (rect.left + window.scrollX)) / cellWidth);
+    const y = Math.floor((event.clientY - (rect.top + window.scrollY)) / cellHeight);
+
+    socket.emit('towerPlace', { x, y, tower: selectedBuyableTower });
+    selectedBuyableTower = null;
+    previewTower = null; // Clear the preview
+    gameBoard.removeEventListener('mousemove', handleMouseMove);
+    gameBoard.removeEventListener('click', handleTowerPlacement);
+}
+
+function enableTowerPlacement() {
+    gameBoard.addEventListener('mousemove', handleMouseMove);
+    gameBoard.addEventListener('click', handleTowerPlacement);
+}
+
+function getShopItems(towerList) {
     towerList.forEach(tower => {
+        const itemPrice = document.createElement('p');
+        itemPrice.innerHTML = tower.price;
+        itemPrice.style.color = "black";
+        itemPrice.style.fontSize = "1vw";
+        itemPrice.style.position = "relative";
+        itemPrice.style.bottom = "0";
+        itemPrice.style.margin = "0";
+        itemPrice.style.left = "auto";
         const item = document.createElement('button');
-        item.name = tower;
-        item.innerHTML = tower;
-        item.style.width = "50px";
-        item.style.height = "50px";
-        item.style.backgroundColor = "white"
+        item.name = tower.name;
+        item.innerHTML = tower.name;
+        item.style.width = "7.95vw";
+        item.style.minWidth = (800 * 0.0795) + "px";
+        item.style.height = "7.95vw";
+        item.style.minHeight = (800 * 0.0795) + "px";
+        item.style.backgroundColor = "white";
         item.addEventListener('mouseover', function () {
             item.style.backgroundColor = "gray";
             item.style.cursor = "pointer";
@@ -107,61 +154,75 @@ function getShopItems() {
             item.style.cursor = "default";
         });
         item.addEventListener('click', function () {
-            if (selectedBuyableTower == item.name) {
-                selectedBuyableTower = null
+            if (selectedBuyableTower === item.name) {
+                selectedBuyableTower = null;
+                previewTower = null;
+                gameBoard.removeEventListener('mousemove', handleMouseMove);
+                gameBoard.removeEventListener('click', handleTowerPlacement);
             } else {
-                selectedBuyableTower = item.name
-            }
-            // the if statement below is supposed to be for selecting a grid square
-            if (selectedBuyableTower != null) {
-                const handleClick = (event) => {
-                    const rect = gameBoard.getBoundingClientRect();
-                    const cellWidth = rect.width / 32;
-                    const cellHeight = rect.height / 20;
-                    const x = (event.clientX - (rect.left + window.scrollX)) / cellWidth;
-                    const y = (event.clientY - (rect.top + window.scrollY)) / cellHeight;
-                    let tower = item.name;
-
-                    socket.emit('towerPlace', { x, y, tower });
-                    selectedBuyableTower = null
-                    gameBoard.removeEventListener('click', handleClick)
-                };
-
-
-
-                gameBoard.addEventListener('click', handleClick);
-
-
+                selectedBuyableTower = item.name;
+                enableTowerPlacement();
             }
         });
+        item.appendChild(itemPrice);
         towerShop.appendChild(item);
-    })
+    });
 }
 
-function getProgram() {
+function drawGame(grid, rows, cols, enemies, towers) {
+    // Redraw the grid, enemies, and towers
+    drawGrid(grid, rows, cols);
+    if (enemies) {
+        enemies.forEach(drawEnemy);
+    }
+    if (towers) {
+        towers.forEach(drawTower);
+    }
+
+    // Draw the preview tower
+    drawPreviewTower();
+}
+
+function runProgram() {
     const programBox = document.getElementById('programBox');
     socket.emit('userProgram', programBox.value, selectedTower.index);
-}
+};
+
+function clearProgram() {
+    const programBox = document.getElementById('programBox');
+    programBox.value = '';
+};
+
+// function saveProgram() {
+//     const programBox = document.getElementById('programBox');
+//     socket.emit('saveProgram', programBox.value, selectedTower.index);
+// }
+
+// function loadProgram() {
+//     const programBox = document.getElementById('programBox');
+//     programBox.value = selectedTower.userCode;
+// }
 
 socket.on('gameData', (data) => {
-    const grid = data.gridData.grid
-    const rows = data.gridData.rows
-    const cols = data.gridData.cols
-    const enemies = data.enemyData
-    const towers = data.towerData
-    const gameOver = data.gameOverStatus
-    const gameRunning = data.gameRunningStatus
+    const grid = data.gridData.grid;
+    const rows = data.gridData.rows;
+    const cols = data.gridData.cols;
+    const enemies = data.enemyData;
+    const towers = data.towerData;
+    const gameOver = data.gameOverStatus;
+    const gameRunning = data.gameRunningStatus;
+    var baseHealth = data.baseHealth;
+    var money = data.money;
+    var wave = data.wave;
+
+    document.getElementById('baseHealth').innerHTML = 'Health: ' + baseHealth;
+    document.getElementById('money').innerHTML = 'Bitpogs: ' + money;
+    document.getElementById('wave').innerHTML = 'Wave: ' + (wave + 1) + ' / 10';
 
     gameBoard.width = cols * spacing;
     gameBoard.height = rows * spacing;
     if (!gameOver && gameRunning) {
-        drawGrid(grid, rows, cols);
-        enemies.forEach(enemy => {
-            drawEnemy(enemy);
-        });
-        towers.forEach(tower => {
-            drawTower(tower)
-        })
+        drawGame(grid, rows, cols, enemies, towers);
     } else {
         if (gameOver) {
             ctx.clearRect(0, 0, gameBoard.width, gameBoard.height);
@@ -170,8 +231,8 @@ socket.on('gameData', (data) => {
                 drawEnemy(enemy);
             });
             towers.forEach(tower => {
-                drawTower(tower)
-            })
+                drawTower(tower);
+            });
             ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
             ctx.fillRect(0, 0, gameBoard.width, gameBoard.height);
         }
@@ -186,24 +247,19 @@ socket.on('towerSelected', (data) => {
     let towerRange = document.getElementById('towerRange');
     if (selectedTower == null) {
         towerMenu.style.transition = 'transform 0.3s ease-in-out';
-        towerMenu.style.transform = 'translate(100%, 0)';
+        towerMenu.style.transform = 'translate(0, 0)';
         selectedTower = data;
         if (selectedTower.userCode != null) {
             programMenu.value = selectedTower.userCode;
             towerRange.value = selectedTower.range;
-        } else {
-            programMenu.value = '';
-            towerRange.value = '';
         }
-
     } else {
-        selectedTower = null
+        selectedTower = null;
         towerMenu.style.transition = 'transform 0.3s ease-in-out';
-        towerMenu.style.transform = 'translate(0, 0)';
-
-    };
+        towerMenu.style.transform = 'translate(-100%, 0)';
+    }
 });
 
 socket.on('codeWillNotBeExecuted', (information) => {
-    console.log(information.text)
-})
+    console.log(information.text);
+});

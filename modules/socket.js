@@ -1,15 +1,12 @@
 const vm = require('vm')
 const acorn = require('acorn')
 const walk = require('acorn-walk');
-const { text } = require('express');
 const frameRate = 60;
 const pathPoint = [{ y: 2, x: 0 }, { y: 2, x: 8 }, { y: 12, x: 8 }, { y: 12, x: 16 }, { y: 2, x: 16 }, { y: 2, x: 24 }, { y: 18, x: 24 }, { y: 18, x: 31 }];
 const pathPoint2 = [{ y: 2, x: 0 }, { y: 2, x: 25 }, { y: 6, x: 25 }, { y: 6, x: 8 }, { y: 10, x: 8 }, { y: 10, x: 16 }, { y: 14, x: 16 }, { y: 14, x: 24 }, { y: 18, x: 24 }, { y: 18, x: 31 }];
 const pathPoint3 = [{ y: 2, x: 0 }, { y: 2, x: 3 }, { y: 6, x: 3 }, { y: 6, x: 5 }, { y: 10, x: 5 }, { y: 10, x: 7 }, { y: 6, x: 7 }, { y: 6, x: 9 }, { y: 10, x: 9 }, { y: 10, x: 11 }, { y: 6, x: 11 }, { y: 6, x: 13 }, { y: 10, x: 13 }, { y: 10, x: 15 }, { y: 6, x: 15 }, { y: 6, x: 17 }, { y: 10, x: 17 }, { y: 10, x: 19 }, { y: 6, x: 19 }, { y: 6, x: 21 }, { y: 10, x: 21 }, { y: 10, x: 23 }, { y: 6, x: 23 }, { y: 6, x: 25 }, { y: 10, x: 25 }, { y: 10, x: 27 }, { y: 6, x: 27 }, { y: 6, x: 29 }, { y: 10, x: 29 }, { y: 10, x: 31 }, { y: 18, x: 31 }];
 const pathPoint4 = [{ y: 2, x: 0 }, { y: 2, x: 15 }, { y: 10, x: 15 }, { y: 10, x: 11 }, { y: 6, x: 11 }, { y: 6, x: 19 }, { y: 10, x: 19 }, { y: 10, x: 15 }, { y: 18, x: 15 }, { y: 18, x: 31 }];
 const pathPoint5 = [{ y: 2, x: 0 }, { y: 2, x: 15 }, { y: 10, x: 15 }, { y: 10, x: 11 }, { y: 6, x: 11 }, { y: 6, x: 19 }, { y: 2, x: 19 }, { y: 2, x: 15 }, { y: 18, x: 15 }, { y: 18, x: 31 }];
-var enemies = []
-var towers = []
 var users = []
 var ticks = 0;
 
@@ -185,8 +182,8 @@ class Tower {
         this.y = y;
         this.index = users[userIndex].towers.length;
         this.userIndex = userIndex;
+        this.lastShotTime = 0;
         this.userCode = null;
-        this.canShoot = true;
         switch (presetTower) {
             case 'basic':
                 this.size = 10
@@ -195,6 +192,7 @@ class Tower {
                 this.damage = 2;
                 this.fireRate = 2;
                 this.name = 'Basic';
+                this.price = 10;
                 break;
             case 'sniper':
                 this.size = 10
@@ -203,6 +201,7 @@ class Tower {
                 this.damage = 10;
                 this.fireRate = 0.5;
                 this.name = 'Sniper';
+                this.price = 20;
                 break;
             case 'machineGun':
                 this.size = 10
@@ -211,6 +210,7 @@ class Tower {
                 this.damage = 1;
                 this.fireRate = 10;
                 this.name = 'MachineGun';
+                this.price = 15;
                 break;
         }
         this.shootLocation = null;
@@ -218,32 +218,82 @@ class Tower {
         this.targetingType = 'first';
     }
 
-    findTarget() {
+    findTarget(ticks) {
+        this.currentTime = ticks;
 
         this.getEnemies = () => {
             return users[this.userIndex].enemies;
-        }
+        };
+
         this.getDistance = (enemy) => {
             return Math.sqrt(Math.pow(enemy.x - this.x, 2) + Math.pow(enemy.y - this.y, 2));
-        }
+        };
+
         this.getDistanceFromStart = (enemy) => {
             return enemy.distanceFromStart;
+        };
+
+        this.towerCanShoot = () => {
+            if (this.currentTime - this.lastShotTime >= (this.fireRate / (1000 / frameRate))) {
+                return true;
+            } else {
+                return false;
+            }
+        };
+        if (this.userCode && !this.scriptIsRunning) {
+            this.scriptIsRunning = true;
+
+            let script = new vm.Script(this.userCode.program);
+            let context = vm.createContext(this.userCode.sandbox);
+
+            try {
+                // Updated sanitizeData function
+                const sanitizeData = (data, seen = new WeakSet()) => {
+                    if (typeof data !== 'object' || data === null) {
+                        return data; // Return primitives and functions as-is
+                    }
+
+                    if (seen.has(data)) {
+                        return; // Remove circular reference
+                    }
+                    seen.add(data);
+
+                    if (Array.isArray(data)) {
+                        return data.map(item => sanitizeData(item, seen));
+                    }
+
+                    const sanitized = {};
+                    for (const key in data) {
+                        if (typeof data[key] === 'function') {
+                            sanitized[key] = data[key]; // Preserve functions
+                        } else {
+                            sanitized[key] = sanitizeData(data[key], seen);
+                        }
+                    }
+                    return sanitized;
+                };
+
+                this.userCode.sandbox = sanitizeData(this.userCode.sandbox);
+
+                script.runInContext(context, { timeout: 10 }); // Add a timeout to prevent infinite loops
+            } catch (err) {
+                console.error('Error running script:', err);
+            } finally {
+                script = null; // Delete the script after execution
+            }
+            this.scriptIsRunning = false;
         }
-
-        // this.getEnemies().forEach(enemy => {
-        //     this.shoot(enemy);
-        // });
-
     };
 
-    shoot(target) {
+    shoot(target, currentTime) {
         const enemyInstance = target;
 
         if (!enemyInstance) {
             this.shootLocation = null;
             return;
         }
-        this.canShoot = false;
+
+        this.lastShotTime = currentTime;
         this.shootLocation = { x: enemyInstance.x, y: enemyInstance.y };
         if (enemyInstance.health <= this.damage) {
             this.damageCount += enemyInstance.health;
@@ -252,6 +302,7 @@ class Tower {
         }
         enemyInstance.health -= this.damage;
         if (enemyInstance.health <= 0) {
+            users[this.userIndex].money += enemyInstance.maxHealth;
             const index = users[this.userIndex].enemies.indexOf(enemyInstance);
             if (index > -1) {
                 users[this.userIndex].enemies.splice(index, 1);
@@ -317,7 +368,7 @@ function connection(socket, io) {
     socket.id = socket.request.session.user;
     console.log('A user connected,', socket.id);
     if (!users.find(user => user.id === socket.id)) {
-        users.push({ id: socket.id, userIndex: 'temp', socket: 'temp', gameIsRunning: true, gameOver: false, enemies: [], towers: [], waveQueue: [], sectionQueue: [], health: 100, money: 0 });
+        users.push({ id: socket.id, userIndex: 'temp', socket: 'temp', gameIsRunning: true, gameOver: false, enemies: [], towers: [], currentWave: -1, waveQueue: [], sectionQueue: [], health: 100, money: 0, wave: 0 });
     }
 
     const userIndex = users.findIndex(user => user.id === socket.id);
@@ -356,8 +407,9 @@ function connection(socket, io) {
             getEnemies: () => users[userIndex].towers[tower].getEnemies(),
             getDistance: (enemy) => users[userIndex].towers[tower].getDistance(enemy),
             shoot: (enemy) => {
-                users[userIndex].towers[tower].shoot(enemy);
-            }
+                users[userIndex].towers[tower].shoot(enemy, ticks);
+            },
+            towerCanShoot: () => users[userIndex].towers[tower].towerCanShoot()
         };
 
         const prohibitedStatements = [
@@ -367,117 +419,248 @@ function connection(socket, io) {
         ];
 
         try {
-            // Preprocess the program to decode obfuscation techniques
             const preprocessProgram = (program) => {
-                // precocatinate the program
-                const normalizedProgram = program.replace(/(['"`])\s*\+\s*\1/g, ''); // Remove empty concatenations
-                var resolvedProgram = normalizedProgram.replace(/(['"`])([^'"`]+?)\1\s*\+\s*(['"`])([^'"`]+?)\3/g, (_, q1, part1, q2, part2) => {
-                    if (q1 === q2) return `${part1}${part2}`; // Concatenate if quotes match
-                    return _;
-                });
-                // Decode Unicode escape sequences
-                resolvedProgram = resolvedProgram.replace(/\\u([\dA-Fa-f]{4})/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
+                let resolvedProgram = program.replace(/(['"`])\s*\+\s*\1/g, '');
 
-                // Decode hexadecimal escape sequences
+                let concatenationRegex = /(['"`])([^'"`]+?)\1\s*\+\s*(['"`])([^'"`]+?)\3/g;
+                while (concatenationRegex.test(resolvedProgram)) {
+                    resolvedProgram = resolvedProgram.replace(concatenationRegex, (_, q1, part1, q2, part2) => {
+                        if (q1 === q2) return `${part1}${part2}`;
+                        return _;
+                    });
+                }
+
+                resolvedProgram = resolvedProgram.replace(/\\u([\dA-Fa-f]{4})/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
                 resolvedProgram = resolvedProgram.replace(/\\x([\dA-Fa-f]{2})/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
 
-                // Decode binary escape sequences
-                resolvedProgram = resolvedProgram.replace(/String\.fromCharCode\((0b[01]+(?:,\s*0b[01]+)*)\)/g, (_, binarySequence) => {
-                    return binarySequence
-                        .split(',')
-                        .map(bin => String.fromCharCode(parseInt(bin.trim(), 2)))
-                        .join('');
+                // Detect and decode Base64 strings
+                const base64Regex = /Buffer\.from\(['"`]([A-Za-z0-9+/=]+)['"`],\s*['"`]base64['"`]\)\.toString\(\)/g;
+                resolvedProgram = resolvedProgram.replace(base64Regex, (_, encoded) => {
+                    try {
+                        return Buffer.from(encoded, 'base64').toString();
+                    } catch {
+                        return ''; // Ignore invalid Base64 strings
+                    }
                 });
 
                 return resolvedProgram;
             };
 
             const normalizedProgram = preprocessProgram(program);
-            // Resolve template literals like `${'c'}onsole`
-            var resolvedProgram = normalizedProgram.replace(/`([^`]*?)\$\{([^}]+?)\}([^`]*?)`/g, (_, before, expression, after) => {
-                try {
-                    // Evaluate the expression inside `${...}`
-                    const resolvedExpression = eval(expression); // Use `eval` cautiously
-                    return `'${before}${resolvedExpression}${after}'`;
-                } catch (error) {
-                    console.error('Error resolving template literal:', error.message);
-                    return `'${before}${after}'`; // Fallback if evaluation fails
-                }
-            });
 
-            // Concatenate string literals
-            resolvedProgram = resolvedProgram.replace(/(['"`])([^'"`]+?)\1\s*\+\s*(['"`])([^'"`]+?)\3/g, (_, q1, part1, q2, part2) => {
-                return `'${part1}${part2}'`;
-            });
-
-            // Validate the program using AST-based analysis
-            const validateProgram = (resolvedProgram, prohibitedStatements) => {
-                const ast = acorn.parse(resolvedProgram, { ecmaVersion: 2020 });
-                let hasProhibitedStatements = false;
-                let hasProhibitedStatementsIncluded = false
+            const detectExcessiveConcatenation = (ast) => {
+                let concatenationCount = 0;
 
                 walk.simple(ast, {
+                    AssignmentExpression(node) {
+                        if (
+                            node.operator === '+=' &&
+                            node.left.type === 'Identifier' &&
+                            node.right.type === 'Literal' &&
+                            typeof node.right.value === 'string'
+                        ) {
+                            concatenationCount++;
+                        }
+                    }
+                });
+
+                if (concatenationCount > 3) { // Threshold for excessive concatenation
+                    throw new Error('Excessive string concatenation detected');
+                }
+            };
+
+            const detectObfuscation = (program) => {
+                const unicodeEscapeRegex = /\\u[\dA-Fa-f]{4}/g;
+                const hexEscapeRegex = /\\x[\dA-Fa-f]{2}/g;
+
+                if (unicodeEscapeRegex.test(program) || hexEscapeRegex.test(program)) {
+                    throw new Error('Obfuscation detected (escape sequences)');
+                }
+            };
+
+            const detectDynamicExecution = (ast) => {
+                let hasDynamicExecution = false;
+
+                walk.simple(ast, {
+                    MemberExpression(node) {
+                        if (node.computed && node.property.type === 'Identifier') {
+                            hasDynamicExecution = true;
+                        }
+                    },
                     CallExpression(node) {
-                        if (prohibitedStatements.includes(node.callee.name)) {
-                            hasProhibitedStatements = true;
+                        if (node.callee.type === 'MemberExpression' && node.callee.computed) {
+                            hasDynamicExecution = true;
+                        }
+                    }
+                });
+
+                if (hasDynamicExecution) {
+                    throw new Error('Dynamic execution detected');
+                }
+            };
+
+            const validateProgram = (resolvedProgram, prohibitedStatements) => {
+                const ast = acorn.parse(resolvedProgram, { ecmaVersion: 2020 });
+
+                walk.simple(ast, {
+                    WithStatement(node) {
+                        throw new Error('Prohibited statement: "with" is not allowed.');
+                    },
+                    WhileStatement(node) {
+                        if (node.test.type === 'Literal' && node.test.value === true) {
+                            throw new Error('Prohibited statement: Infinite loop detected.');
+                        }
+                    },
+                    CallExpression(node) {
+                        if (
+                            node.callee.type === 'MemberExpression' &&
+                            node.callee.object.type === 'Identifier' &&
+                            node.callee.object.name === 'String' &&
+                            node.callee.property.type === 'Identifier' &&
+                            node.callee.property.name === 'fromCharCode'
+                        ) {
+                            throw new Error('Prohibited statement: Use of "String.fromCharCode" is not allowed.');
                         }
                     },
                     MemberExpression(node) {
                         if (
-                            prohibitedStatements.includes(node.object.name) ||
-                            prohibitedStatements.includes(node.property.name)
+                            node.object.type === 'Identifier' &&
+                            node.object.name === 'String' &&
+                            node.property.type === 'Identifier' &&
+                            node.property.name === 'fromCharCode'
                         ) {
-                            hasProhibitedStatements = true;
+                            throw new Error('Prohibited statement: Use of "String.fromCharCode" is not allowed.');
                         }
                     },
-                    NewExpression(node) {
-                        if (prohibitedStatements.includes(node.callee.name)) {
-                            hasProhibitedStatements = true;
+                    BinaryExpression(node) {
+                        if (
+                            node.operator === '+' &&
+                            (node.left.type === 'Literal' && typeof node.left.value === 'string' ||
+                                node.right.type === 'Literal' && typeof node.right.value === 'string')
+                        ) {
+                            throw new Error('Prohibited statement: String concatenation is not allowed.');
+                        }
+                    },
+                    AssignmentExpression(node) {
+                        if (
+                            node.operator === '+=' &&
+                            node.left.type === 'Identifier' &&
+                            node.right.type === 'Literal' &&
+                            typeof node.right.value === 'string'
+                        ) {
+                            throw new Error('Prohibited statement: String concatenation using "+=" is not allowed.');
+                        }
+                    },
+                    TemplateLiteral(node) {
+                        throw new Error('Prohibited statement: Template literals are not allowed.');
+                    },
+                    Identifier(node) {
+                        if (node.name === 'CharCode') {
+                            throw new Error('Prohibited statement: Use of "CharCode" is not allowed.');
+                        }
+                    },
+                    Literal(node) {
+                        if (typeof node.value === 'string') {
+                            throw new Error('Prohibited statement: String literals are not allowed.');
                         }
                     }
                 });
 
-                prohibitedStatements.forEach(statement => {
-                    if (resolvedProgram.includes(statement)) {
-                        hasProhibitedStatementsIncluded = true;
-                    }
-                });
-
-                if (hasProhibitedStatements || hasProhibitedStatementsIncluded) {
-                    throw new Error('Prohibited statements');
+                // Additional checks for obfuscation
+                if (/fromCharCode/.test(resolvedProgram)) {
+                    throw new Error('Prohibited statement: Use of "fromCharCode" detected in obfuscated code.');
                 }
+
+                if (/\\u[\dA-Fa-f]{4}|\\x[\dA-Fa-f]{2}/.test(resolvedProgram)) {
+                    throw new Error('Prohibited statement: Obfuscation detected (escape sequences).');
+                }
+
+                if (/\[\s*\]\[.*?\]/.test(resolvedProgram)) {
+                    throw new Error('Prohibited statement: Obfuscation detected (array indexing patterns).');
+                }
+
+                // Additional runtime checks can be added here if needed
+                detectDynamicExecution(ast);
+                detectObfuscation(resolvedProgram);
+                detectExcessiveConcatenation(ast);
             };
 
-            validateProgram(resolvedProgram, prohibitedStatements);
+            validateProgram(normalizedProgram, prohibitedStatements);
 
-            // Execute the program in a controlled environment
             const sandbox = {
                 ...allowedFunctions,
                 tower: users[userIndex].towers[tower],
-                process: undefined, // Remove access to process
-                constructor: undefined, // Remove access to constructor
-                this: undefined // Remove access to this
+                global: undefined,
+                process: undefined,
+                constructor: undefined,
+                this: undefined,
+                Function: undefined,
+                eval: undefined,
+                setTimeout: undefined,
+                setInterval: undefined,
+                Reflect: undefined,
+                Proxy: undefined,
+                Buffer: undefined,
+                console: undefined,
+                vm: undefined,
+                require: undefined,
+                child_process: undefined,
             };
+            Object.freeze(Object.prototype);
 
-            const script = new vm.Script(program);
-            const context = vm.createContext(sandbox);
-            script.runInContext(context, { timeout: 1000 }); // Add a timeout to prevent infinite loops
-
+            Object.defineProperty(Function.prototype, 'constructor', {
+                value: undefined,
+                writable: false,
+                configurable: false,
+            });
+            console.log('Normalized Program:', normalizedProgram);
+            let script = new vm.Script(program);
+            let context = vm.createContext(sandbox);
+            script.runInContext(context, { timeout: 250 });
+            // users[userIndex].towers[tower].userCode = { program: program, sandbox: sandbox };
             console.log('Program executed successfully.', program);
         } catch (error) {
-            console.error('Error executing user program:', 'An error occurred while executing the program.');
-            console.log(error, error.message);
-
-            if (error.message.includes('Prohibited statements')) {
-                socket.emit('codeWillNotBeExecuted', { text: 'We have found that your program has prohibited statements included and we will refuse to execute it on our server.' })
-            } else if (error.message.includes('timeout')) {
-                socket.emit('codeWillNotBeExecuted', { text: 'Your program took too long to execute and we have refused to execute it on our server.' })
-            } else if (error.message.includes('Unexpected token')) {
-                socket.emit('codeWillNotBeExecuted', { text: 'Your program has an unexpected token. '+error.message })
+            if (error.message.includes('Script execution timed out')) {
+                console.error('Error: Script execution timed out.');
+                socket.emit('errorMessage', 'Your program took too long to execute.');
+            } else {
+                console.error('Error executing user program:', error.message);
+                socket.emit('errorMessage', 'An error occurred while executing the program.');
             }
         }
     });
 
+    socket.on('getTowerList', () => {
+        const towerTypes = [];
+        const towerSwitch = Tower.toString().match(/switch\s*\(presetTower\)\s*{([\s\S]*?)}/);
+        if (towerSwitch && towerSwitch[1]) {
+            const cases = towerSwitch[1].match(/case\s*'([^']+)'[\s\S]*?this\.price\s*=\s*(\d+)/g);
+            if (cases) {
+                cases.forEach(caseStatement => {
+                    const towerName = caseStatement.match(/case\s*'([^']+)'/)[1];
+                    const towerPrice = parseInt(caseStatement.match(/this\.price\s*=\s*(\d+)/)[1], 10);
+                    towerTypes.push({ name: towerName, price: towerPrice });
+                });
+            }
+        }
+        socket.emit('towerList', towerTypes);
+    });
+
+    socket.on('placingTower', (tower) => {
+        const towerName = tower.name;
+        const towerSwitch = Tower.toString().match(/switch\s*\(presetTower\)\s*{([\s\S]*?)}/);
+        if (towerSwitch && towerSwitch[1]) {
+            const cases = towerSwitch[1].match(/case\s*'([^']+)'[\s\S]*?this\.color\s*=\s*'([^']+)'/g);
+            if (cases) {
+                const towerCase = cases.find(caseStatement => caseStatement.includes(`case '${towerName}'`));
+                if (towerCase) {
+                    const color = towerCase.match(/this\.color\s*=\s*'([^']+)'/)[1];
+                    const rgbaColor = color.replace(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/, 'rgba($1, $2, $3, 0.25)');
+                    socket.emit('placingTower', { x: tower.x, y: tower.y, rgbaColor });
+                }
+            }
+        }
+    })
 
     socket.on('startWave', waveIndex => {
         if (waveIndex || waveIndex === 0) {
@@ -520,15 +703,10 @@ let gameLoop = setInterval(() => {
                 });
                 // Handles the shooting of each tower
                 user.towers.forEach(tower => {
-                    const currentTime = ticks;
-                    if (tower.shootLocation && currentTime - tower.lastShotTime >= 5) {
+                    tower.findTarget(ticks);             
+                    if (ticks - tower.lastShotTime >= 30) {
                         tower.shootLocation = null;
                     }
-                    if (!tower.lastShotTime || currentTime - tower.lastShotTime >= frameRate / tower.fireRate) {
-                        tower.lastShotTime = currentTime;
-                        tower.canShoot = true;
-                    }
-                    tower.findTarget();
                 });
                 // Handles the wave queue and sends the sections of the wave to the section queue
                 if (user.waveQueue.length > 0) {
@@ -570,7 +748,7 @@ let gameLoop = setInterval(() => {
             }
         }
         // Sends the game data to the client
-        socket.emit('gameData', { gridData: { grid, rows, cols }, enemyData: user.enemies, towerData: user.towers, gameOverStatus: user.gameOver, gameRunningStatus: user.gameIsRunning });
+        socket.emit('gameData', { gridData: { grid, rows, cols }, enemyData: user.enemies, towerData: user.towers, baseHealth: user.health, money: user.money, wave: user.currentWave, gameOverStatus: user.gameOver, gameRunningStatus: user.gameIsRunning });
 
 
     })

@@ -13,9 +13,10 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: navy;
+            background-color: rgb(68, 68, 68);
             overflow-x: hidden;
             overflow-y: hidden;
+            min-width: 800px;
         }
 
         #gameBoard {
@@ -25,101 +26,68 @@
             left: 0;
             width: 84.1vw;
             height: calc(100vw / 2);
-            z-index: 10;
+            min-width: calc(800px * 0.841);
+            min-height: 400px;
+            z-index: 0;
         }
 
         #gameShopMenu {
             position: absolute;
-            background-color: white;
+            background-color: dimgray;
             top: 0;
             right: 0;
             width: 15.9vw;
             height: calc(100vw / 2);
-            z-index: 10;
+            min-width: calc(800px * 0.159);
+            min-height: calc(400px);
+            z-index: 0;
         }
 
         #programMenu {
             position: absolute;
-            background-color: white;
+            background-color: black;
             border: none;
-            top: 62%;
-            left: 0%;
-            width: 100%;
-            height: 0%;
-            z-index: 11;
-            max-width: 50px;
-        }
-
-        #healthAmount {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 10%;
-            height: 5vw;
-            z-index: 11;
-        }
-        
-        #waveNumber {
-            position: absolute;
-            top: 2vw;
-            left: 0;
-            width: 10%;
-            height: 5vw;
-            z-index: 11;
-        }
-        
-        #cashAmount {
-            position: absolute;
-            top: 1vw;
-            left: 0;
-            width: 10%;
-            height: 5vw;
-            z-index: 11;
-        }
-
-        #towerDamageText {
-            position: absolute;
-            top: 5vw;
+            bottom: 0;
             left: 0;
             width: 100%;
-            height: 5vw;
-            background-color: white;
-            z-index: 11;
-        }
-
-        #towerRangeText {
-            position: absolute;
-            top: 10vw;
-            left: 0;
-            width: 100%;
-            height: 5vw;
-            background-color: white;
-            z-index: 11;
+            height: 25%;
+            z-index: 1;
+            min-width: 100%;
+            min-height: 100px;
         }
 
         #towerMenu {
             position: absolute;
-            background-color: white;
+            background-color: grey;
             display: block;
-            top: 6vw;
-            left: -15vw;
+            left: 0;
             width: 15vw;
             height: 34vw;
             opacity: 0.5;
-            z-index: 11;
+            z-index: 1;
             border-top-right-radius: 15px;
             border-bottom-right-radius: 15px;
+            min-width: calc(800px * 0.159);
+            min-height: calc(800px * 0.34);
+            margin-top: calc(800px * 0.02);
+            transform: translate(-100%, 0);
         }
 
-        #upgradeBox {
-            position: absolute;
-            top: 15vw;
-            left: 0;
-            width: 97%;
-            height: 5vw;
-            background-color: white;
-            z-index: 11;
-            border-style: solid;
+        #baseHealth, #money, #wave {
+            position: relative;
+            color: white;
+            z-index: 1;
+            top: 0;
+            left: 1%;
+            display: inline-block;
+            margin-right: 10px;
+        }
+
+        .programButton {
+            position: relative;
+            width: 20%;
+            height: 10%;
+            font-size: calc(0.4rem + 0.2vw);
         }
 
     </style>
@@ -127,35 +95,21 @@
 
 <body>
     <div id="mainPage">
-        <canvas id="gameBoard"></canvas>
+        <p id="baseHealth">Health: </p>
+        <p id="money">Bitpogs: </p>
+        <p id="wave">Wave: </p>
+        <canvas id="gameBoard">
+        </canvas>
         <div id="gameShopMenu"></div>
-
-        <div id="healthAmount">
-            Health: <span id="health">N/A</span>
-        </div>
-
-        <div id="cashAmount">
-            Money: <span id="cash">N/A</span>
-        </div>
-
-        <div id="waveNumber">
-            Wave:  <span id="waves">N/A</span>
-        </div>
-
         <div id="towerMenu">
-            
-
-            <div id="towerDamageText">
-                Tower Damage: <span id="towerDamage"></span>
-            </div>
-
-            <div id="towerRangeText">
-                Tower Range: <span id="towerRange"></span>
-            </div>
-            <div id="upgradeBox"> </div>
             <div id="programMenu">
-                <textarea id="programBox" name="programBox" cols="22" rows="10" style="resize: none;"></textarea>
-                <button onclick="getProgram()"></button>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <button onclick="runProgram()" class="programButton" style="flex: 1; margin-right: 5px;">Run Program</button>
+                    <button onclick="clearProgram()" class="programButton" style="flex: 1; margin-right: 5px;">Clear Program</button>
+                    <button onclick="saveProgram()" class="programButton" style="flex: 1; margin-right: 5px;">Save Program</button>
+                    <button onclick="loadProgram()" class="programButton" style="flex: 1;">Load A Program</button>
+                </div>
+                <textarea id="programBox" name="programBox" cols="22" rows="10" style="resize: none; font-family: 'Courier New', monospace; white-space: pre; overflow-x: auto; background-color: #1e1e1e; color: #d4d4d4; border: 1px solid #3c3c3c; padding: 5px; line-height: 1.5; width: 100%; height: 100%; box-sizing: border-box; border-bottom-right-radius: 15px;"></textarea>
             </div>
         </div>
     </div>

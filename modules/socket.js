@@ -192,6 +192,7 @@ class Tower {
                 this.damage = 2;
                 this.fireRate = 2;
                 this.name = 'Basic';
+                this.price = 10;
                 break;
             case 'sniper':
                 this.size = 10
@@ -200,6 +201,7 @@ class Tower {
                 this.damage = 10;
                 this.fireRate = 0.5;
                 this.name = 'Sniper';
+                this.price = 20;
                 break;
             case 'machineGun':
                 this.size = 10
@@ -208,6 +210,7 @@ class Tower {
                 this.damage = 1;
                 this.fireRate = 10;
                 this.name = 'MachineGun';
+                this.price = 15;
                 break;
         }
         this.shootLocation = null;
@@ -498,7 +501,7 @@ function connection(socket, io) {
 
             const validateProgram = (resolvedProgram, prohibitedStatements) => {
                 const ast = acorn.parse(resolvedProgram, { ecmaVersion: 2020 });
-            
+
                 walk.simple(ast, {
                     WithStatement(node) {
                         throw new Error('Prohibited statement: "with" is not allowed.');
@@ -533,7 +536,7 @@ function connection(socket, io) {
                         if (
                             node.operator === '+' &&
                             (node.left.type === 'Literal' && typeof node.left.value === 'string' ||
-                             node.right.type === 'Literal' && typeof node.right.value === 'string')
+                                node.right.type === 'Literal' && typeof node.right.value === 'string')
                         ) {
                             throw new Error('Prohibited statement: String concatenation is not allowed.');
                         }
@@ -562,20 +565,20 @@ function connection(socket, io) {
                         }
                     }
                 });
-            
+
                 // Additional checks for obfuscation
                 if (/fromCharCode/.test(resolvedProgram)) {
                     throw new Error('Prohibited statement: Use of "fromCharCode" detected in obfuscated code.');
                 }
-            
+
                 if (/\\u[\dA-Fa-f]{4}|\\x[\dA-Fa-f]{2}/.test(resolvedProgram)) {
                     throw new Error('Prohibited statement: Obfuscation detected (escape sequences).');
                 }
-            
+
                 if (/\[\s*\]\[.*?\]/.test(resolvedProgram)) {
                     throw new Error('Prohibited statement: Obfuscation detected (array indexing patterns).');
                 }
-            
+
                 // Additional runtime checks can be added here if needed
                 detectDynamicExecution(ast);
                 detectObfuscation(resolvedProgram);
@@ -627,6 +630,37 @@ function connection(socket, io) {
         }
     });
 
+    socket.on('getTowerList', () => {
+        const towerTypes = [];
+        const towerSwitch = Tower.toString().match(/switch\s*\(presetTower\)\s*{([\s\S]*?)}/);
+        if (towerSwitch && towerSwitch[1]) {
+            const cases = towerSwitch[1].match(/case\s*'([^']+)'[\s\S]*?this\.price\s*=\s*(\d+)/g);
+            if (cases) {
+                cases.forEach(caseStatement => {
+                    const towerName = caseStatement.match(/case\s*'([^']+)'/)[1];
+                    const towerPrice = parseInt(caseStatement.match(/this\.price\s*=\s*(\d+)/)[1], 10);
+                    towerTypes.push({ name: towerName, price: towerPrice });
+                });
+            }
+        }
+        socket.emit('towerList', towerTypes);
+    });
+
+    socket.on('placingTower', (tower) => {
+        const towerName = tower.name;
+        const towerSwitch = Tower.toString().match(/switch\s*\(presetTower\)\s*{([\s\S]*?)}/);
+        if (towerSwitch && towerSwitch[1]) {
+            const cases = towerSwitch[1].match(/case\s*'([^']+)'[\s\S]*?this\.color\s*=\s*'([^']+)'/g);
+            if (cases) {
+                const towerCase = cases.find(caseStatement => caseStatement.includes(`case '${towerName}'`));
+                if (towerCase) {
+                    const color = towerCase.match(/this\.color\s*=\s*'([^']+)'/)[1];
+                    const rgbaColor = color.replace(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/, 'rgba($1, $2, $3, 0.25)');
+                    socket.emit('placingTower', { x: tower.x, y: tower.y, rgbaColor });
+                }
+            }
+        }
+    })
 
     socket.on('startWave', waveIndex => {
         if (waveIndex || waveIndex === 0) {
@@ -669,7 +703,10 @@ let gameLoop = setInterval(() => {
                 });
                 // Handles the shooting of each tower
                 user.towers.forEach(tower => {
-                    tower.findTarget(ticks);
+                    tower.findTarget(ticks);             
+                    if (ticks - tower.lastShotTime >= 30) {
+                        tower.shootLocation = null;
+                    }
                 });
                 // Handles the wave queue and sends the sections of the wave to the section queue
                 if (user.waveQueue.length > 0) {

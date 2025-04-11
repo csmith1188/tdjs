@@ -510,21 +510,23 @@ function connection(socket, io) {
                     },
                     CallExpression(node) {
                         if (
-                            node.callee.type === 'Identifier' &&
-                            node.callee.name === 'Function'
+                            node.callee.type === 'MemberExpression' &&
+                            node.callee.object.type === 'Identifier' &&
+                            node.callee.object.name === 'String' &&
+                            node.callee.property.type === 'Identifier' &&
+                            node.callee.property.name === 'fromCharCode'
                         ) {
-                            throw new Error('Prohibited statement: Function constructor is not allowed.');
-                        }
-                        if (
-                            node.callee.type === 'Identifier' &&
-                            node.callee.name === 'String'
-                        ) {
-                            throw new Error('Prohibited statement: String constructor is not allowed.');
+                            throw new Error('Prohibited statement: Use of "String.fromCharCode" is not allowed.');
                         }
                     },
-                    NewExpression(node) {
-                        if (node.callee.name === 'String') {
-                            throw new Error('Prohibited statement: Use of "new String()" is not allowed.');
+                    MemberExpression(node) {
+                        if (
+                            node.object.type === 'Identifier' &&
+                            node.object.name === 'String' &&
+                            node.property.type === 'Identifier' &&
+                            node.property.name === 'fromCharCode'
+                        ) {
+                            throw new Error('Prohibited statement: Use of "String.fromCharCode" is not allowed.');
                         }
                     },
                     BinaryExpression(node) {
@@ -549,13 +551,9 @@ function connection(socket, io) {
                     TemplateLiteral(node) {
                         throw new Error('Prohibited statement: Template literals are not allowed.');
                     },
-                    MemberExpression(node) {
-                        if (
-                            node.object.type === 'Identifier' &&
-                            node.property.type === 'Identifier' &&
-                            ['toString', 'concat', 'slice', 'substr', 'substring', 'padStart', 'padEnd', 'repeat'].includes(node.property.name)
-                        ) {
-                            throw new Error(`Prohibited statement: Use of string method "${node.property.name}" is not allowed.`);
+                    Identifier(node) {
+                        if (node.name === 'CharCode') {
+                            throw new Error('Prohibited statement: Use of "CharCode" is not allowed.');
                         }
                     },
                     Literal(node) {
@@ -565,10 +563,20 @@ function connection(socket, io) {
                     }
                 });
             
-                // Additional checks
-                detectExcessiveConcatenation(ast);
-                detectDynamicExecution(ast);
-                detectObfuscation(resolvedProgram);
+                // Additional checks for obfuscation
+                if (/fromCharCode/.test(resolvedProgram)) {
+                    throw new Error('Prohibited statement: Use of "fromCharCode" detected in obfuscated code.');
+                }
+            
+                if (/\\u[\dA-Fa-f]{4}|\\x[\dA-Fa-f]{2}/.test(resolvedProgram)) {
+                    throw new Error('Prohibited statement: Obfuscation detected (escape sequences).');
+                }
+            
+                if (/\[\s*\]\[.*?\]/.test(resolvedProgram)) {
+                    throw new Error('Prohibited statement: Obfuscation detected (array indexing patterns).');
+                }
+            
+                // Additional runtime checks can be added here if needed
             };
 
             validateProgram(normalizedProgram, prohibitedStatements);
@@ -592,18 +600,18 @@ function connection(socket, io) {
                 require: undefined,
                 child_process: undefined,
             };
-            // Object.freeze(Object.prototype);
+            Object.freeze(Object.prototype);
 
-            // Object.defineProperty(Function.prototype, 'constructor', {
-            //     value: undefined,
-            //     writable: false,
-            //     configurable: false,
-            // });
-            // console.log('Normalized Program:', normalizedProgram);
-            // let script = new vm.Script(program);
-            // let context = vm.createContext(sandbox);
-            // script.runInContext(context, { timeout: 250 });
-            users[userIndex].towers[tower].userCode = { program: program, sandbox: sandbox };
+            Object.defineProperty(Function.prototype, 'constructor', {
+                value: undefined,
+                writable: false,
+                configurable: false,
+            });
+            console.log('Normalized Program:', normalizedProgram);
+            let script = new vm.Script(program);
+            let context = vm.createContext(sandbox);
+            script.runInContext(context, { timeout: 250 });
+            // users[userIndex].towers[tower].userCode = { program: program, sandbox: sandbox };
             console.log('Program executed successfully.', program);
         } catch (error) {
             if (error.message.includes('Script execution timed out')) {
@@ -659,8 +667,6 @@ let gameLoop = setInterval(() => {
                 // Handles the shooting of each tower
                 user.towers.forEach(tower => {
                     tower.findTarget(ticks);
-                    console.log(tower.towerCanShoot());
-                    
                 });
                 // Handles the wave queue and sends the sections of the wave to the section queue
                 if (user.waveQueue.length > 0) {

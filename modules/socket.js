@@ -577,6 +577,9 @@ function connection(socket, io) {
                 }
             
                 // Additional runtime checks can be added here if needed
+                detectDynamicExecution(ast);
+                detectObfuscation(resolvedProgram);
+                detectExcessiveConcatenation(ast);
             };
 
             validateProgram(normalizedProgram, prohibitedStatements);

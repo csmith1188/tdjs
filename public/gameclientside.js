@@ -133,14 +133,17 @@ function getShopItems(towerList) {
         itemPrice.innerHTML = tower.price;
         itemPrice.style.color = "black";
         itemPrice.style.fontSize = "1vw";
-        itemPrice.style.bottom = "0px";
         itemPrice.style.position = "relative";
+        itemPrice.style.bottom = "0";
+        itemPrice.style.margin = "0";
         itemPrice.style.left = "auto";
         const item = document.createElement('button');
         item.name = tower.name;
         item.innerHTML = tower.name;
         item.style.width = "7.95vw";
+        item.style.minWidth = (800 * 0.0795) + "px";
         item.style.height = "7.95vw";
+        item.style.minHeight = (800 * 0.0795) + "px";
         item.style.backgroundColor = "white";
         item.addEventListener('mouseover', function () {
             item.style.backgroundColor = "gray";
@@ -180,10 +183,25 @@ function drawGame(grid, rows, cols, enemies, towers) {
     drawPreviewTower();
 }
 
-function getProgram() {
+function runProgram() {
     const programBox = document.getElementById('programBox');
     socket.emit('userProgram', programBox.value, selectedTower.index);
-}
+};
+
+function clearProgram() {
+    const programBox = document.getElementById('programBox');
+    programBox.value = '';
+};
+
+// function saveProgram() {
+//     const programBox = document.getElementById('programBox');
+//     socket.emit('saveProgram', programBox.value, selectedTower.index);
+// }
+
+// function loadProgram() {
+//     const programBox = document.getElementById('programBox');
+//     programBox.value = selectedTower.userCode;
+// }
 
 socket.on('gameData', (data) => {
     const grid = data.gridData.grid;
@@ -229,7 +247,7 @@ socket.on('towerSelected', (data) => {
     let towerRange = document.getElementById('towerRange');
     if (selectedTower == null) {
         towerMenu.style.transition = 'transform 0.3s ease-in-out';
-        towerMenu.style.transform = 'translate(100%, 0)';
+        towerMenu.style.transform = 'translate(0, 0)';
         selectedTower = data;
         if (selectedTower.userCode != null) {
             programMenu.value = selectedTower.userCode;
@@ -238,7 +256,7 @@ socket.on('towerSelected', (data) => {
     } else {
         selectedTower = null;
         towerMenu.style.transition = 'transform 0.3s ease-in-out';
-        towerMenu.style.transform = 'translate(0, 0)';
+        towerMenu.style.transform = 'translate(-100%, 0)';
     }
 });
 

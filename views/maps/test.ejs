@@ -19,6 +19,16 @@
             min-width: 800px;
         }
 
+        #backgroundPage {
+            position: absolute;
+            background-color: rgb(68, 68, 68);
+            bottom: 0;
+            left: 0;
+            width: calc(100%);
+            height: calc(100% - calc(100vw / 2));
+            z-index: 10;
+        }
+
         #gameBoard {
             position: absolute;
             background-color: black;
@@ -31,7 +41,7 @@
             z-index: 0;
         }
 
-        #gameShopMenu {
+        #gameMenu {
             position: absolute;
             background-color: dimgray;
             top: 0;
@@ -73,14 +83,44 @@
             transform: translate(-100%, 0);
         }
 
-        #baseHealth, #money, #wave {
-            position: relative;
-            color: white;
+        #waveMenu {
+            position: absolute;
+            background-color: black;
+            border: none;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 12.5%;
             z-index: 1;
-            top: 0;
-            left: 1%;
+            min-width: 100%;
+            min-height: 100px;
+        }
+
+        #waveButton {
+            position: absolute;
+            background-color: #1e1e1e;
+            border: none;
+            color: white;
+            font-size: calc(0.4rem + 0.2vw);
+            padding: 10px;
+            text-align: center;
+            text-decoration: none;
             display: inline-block;
-            margin-right: 10px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 15px;
+            width: 100%;
+            height: 100%;
+        }
+
+        #gameOverPage {
+            position: absolute;
+            background-color: rgb(1, 151, 21);
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
         }
 
         .programButton {
@@ -90,17 +130,58 @@
             font-size: calc(0.4rem + 0.2vw);
         }
 
+        #gameOverPage {
+            display: none;
+            top: 40%;
+            left: 40%;
+            width: 20%;
+            height: 20%;
+            z-index: 2;
+        }
+
+        #gameOverText {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: calc(1rem + 1vw);
+        }
+
+        #restartButton {
+            position: absolute;
+            top: 80%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #1e1e1e;
+            border: none;
+            color: white;
+            font-size: calc(0.4rem + 0.2vw);
+        }
+
+
+
     </style>
 </head>
 
 <body>
     <div id="mainPage">
-        <p id="baseHealth">Health: </p>
-        <p id="money">Bitpogs: </p>
-        <p id="wave">Wave: </p>
         <canvas id="gameBoard">
+            <p id="baseHealth">Health: </p>
+            <p id="money">Bitpogs: </p>
+            <p id="wave">Wave: </p>
         </canvas>
-        <div id="gameShopMenu"></div>
+        <div id="gameOverPage">
+            <h1 id="gameOverText">Game Over!</h1>
+            <button id="restartButton" onclick="restartGame()">Restart</button>
+        </div>
+        <div id="backgroundPage"></div>
+        <div id="gameMenu">
+            <div id="gameMenuShop"></div>
+            <div id="waveMenu">
+                <button id="waveButton" onclick="sendWave()">Send Wave</button>
+            </div>
+        </div>
         <div id="towerMenu">
             <div id="programMenu">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">

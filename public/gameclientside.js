@@ -2,10 +2,12 @@ const socket = io();
 const spacing = 32; // Change this to adjust the size of the grid cell and quality of each cell
 var selectedBuyableTower = null;
 var selectedTower = null;
+var currentGrid, currentRows, currentCols, currentEnemies, currentTowers, currentBaseHealth, currentMoney, currentWave;
 
 const gameBoard = document.getElementById('gameBoard');
+const ratio = getCanvasRatio(gameBoard);
 const ctx = gameBoard.getContext('2d');
-var towerShop = document.getElementById("gameShopMenu");
+var towerShop = document.getElementById("gameMenu");
 var towerList = [];
 let previewTower = null; // To store the current preview tower position
 
@@ -34,16 +36,11 @@ function drawGrid(grid, rows, cols) {
 }
 
 function drawEnemy(enemy) {
-    const { x, y, color, size, healthBorder, borderColor } = enemy;
+    const { x, y, color, size } = enemy;
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.arc(x * spacing + spacing / 2, y * spacing + spacing / 2, size / 2, 0, 2 * Math.PI);
     ctx.fill();
-    if (healthBorder) {
-        ctx.strokeStyle = borderColor;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-    }
 }
 
 function selectTower(rows, cols) {
@@ -85,9 +82,9 @@ function drawTower(tower) {
 function drawPreviewTower() {
     if (!previewTower) return;
 
-    const { x, y, name } = previewTower;
+    const { x, y } = previewTower;
     ctx.globalAlpha = 0.5; // Set transparency
-    ctx.fillStyle = 'gray'; // Example color for the transparent tower
+    ctx.fillStyle = 'gray';
     ctx.fillRect(x * spacing, y * spacing, spacing, spacing);
     ctx.globalAlpha = 1.0; // Reset transparency
 }
@@ -105,7 +102,7 @@ function handleMouseMove(event) {
     previewTower = { x, y, name: selectedBuyableTower };
 
     // Redraw the game board to include the preview
-    drawGame();
+    drawGame(currentGrid, currentRows, currentCols, currentEnemies, currentTowers, currentBaseHealth, currentMoney, currentWave);
 }
 
 function handleTowerPlacement(event) {
@@ -169,18 +166,57 @@ function getShopItems(towerList) {
     });
 }
 
-function drawGame(grid, rows, cols, enemies, towers) {
-    // Redraw the grid, enemies, and towers
+function getCanvasRatio(canvas) {
+    const cssWidth = canvas.clientWidth;
+    const cssHeight = canvas.clientHeight;
+    const internalWidth = canvas.width;
+    const internalHeight = canvas.height;
+
+    // Calculate the pixel ratio
+    const ratioX = internalWidth / cssWidth;
+    const ratioY = internalHeight / cssHeight;
+
+    // Return the average ratio (assuming uniform scaling)
+    return (ratioX + ratioY) / 2;
+}
+
+function drawGame(grid, rows, cols, enemies, towers, baseHealth, money, wave) {
+    // Clear the canvas
+    ctx.clearRect(0, 0, gameBoard.width, gameBoard.height);
+
+    // Redraw the grid
     drawGrid(grid, rows, cols);
-    if (enemies) {
+
+    // Draw all enemies
+    if (enemies && Array.isArray(enemies)) {
         enemies.forEach(drawEnemy);
     }
-    if (towers) {
+
+    // Draw all towers
+    if (towers && Array.isArray(towers)) {
         towers.forEach(drawTower);
     }
 
     // Draw the preview tower
     drawPreviewTower();
+
+    // Draw game data (baseHealth, money, wave) on the canvas
+    ctx.fillStyle = 'white';
+    ctx.font = `${64 * ratio}px Arial`; // Scale font size using the canvas ratio
+    ctx.textAlign = 'left';
+
+    // Display base health
+    ctx.fillText(`Health: ${baseHealth}`, 10, 20);
+
+    // Display money
+    ctx.fillText(`Bitpogs: ${money}`, 80, 20);
+
+    // Display wave
+    ctx.fillText(`Wave: ${parseInt(wave) + 1} / 10`, 920, 20);
+}
+
+function restartGame() {
+    socket.emit('restartGame');
 }
 
 function runProgram() {
@@ -203,38 +239,42 @@ function clearProgram() {
 //     programBox.value = selectedTower.userCode;
 // }
 
+function sendWave() {
+    socket.emit('sendWave');
+}
+
 socket.on('gameData', (data) => {
-    const grid = data.gridData.grid;
-    const rows = data.gridData.rows;
-    const cols = data.gridData.cols;
-    const enemies = data.enemyData;
-    const towers = data.towerData;
+    currentGrid = data.gridData.grid;
+    currentRows = data.gridData.rows;
+    currentCols = data.gridData.cols;
+    currentEnemies = data.enemyData;
+    currentTowers = data.towerData;
+    currentBaseHealth = data.baseHealth;
+    currentMoney = data.money;
+    currentWave = data.wave;
+
     const gameOver = data.gameOverStatus;
     const gameRunning = data.gameRunningStatus;
-    var baseHealth = data.baseHealth;
-    var money = data.money;
-    var wave = data.wave;
 
-    document.getElementById('baseHealth').innerHTML = 'Health: ' + baseHealth;
-    document.getElementById('money').innerHTML = 'Bitpogs: ' + money;
-    document.getElementById('wave').innerHTML = 'Wave: ' + (wave + 1) + ' / 10';
+    gameBoard.width = currentCols * spacing;
+    gameBoard.height = currentRows * spacing;
 
-    gameBoard.width = cols * spacing;
-    gameBoard.height = rows * spacing;
     if (!gameOver && gameRunning) {
-        drawGame(grid, rows, cols, enemies, towers);
+        document.getElementById('gameOverPage').style.display = 'none';
+        drawGame(currentGrid, currentRows, currentCols, currentEnemies, currentTowers, currentBaseHealth, currentMoney, currentWave);
     } else {
         if (gameOver) {
             ctx.clearRect(0, 0, gameBoard.width, gameBoard.height);
-            drawGrid(grid, rows, cols);
-            enemies.forEach(enemy => {
+            drawGrid(currentGrid, currentRows, currentCols);
+            currentEnemies.forEach(enemy => {
                 drawEnemy(enemy);
             });
-            towers.forEach(tower => {
+            currentTowers.forEach(tower => {
                 drawTower(tower);
             });
             ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
             ctx.fillRect(0, 0, gameBoard.width, gameBoard.height);
+            document.getElementById('gameOverPage').style.display = 'block';
         }
     }
 });

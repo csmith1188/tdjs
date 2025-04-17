@@ -180,6 +180,34 @@ function getCanvasRatio(canvas) {
     return (ratioX + ratioY) / 2;
 }
 
+function adjustAspectRatio() {
+    const targetAspectRatio = 16 / 9; // Standard aspect ratio
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const currentAspectRatio = viewportWidth / viewportHeight;
+
+    const gamePage = document.getElementById('gamePage');
+
+    if (currentAspectRatio > targetAspectRatio) {
+        // Viewport is wider than the target aspect ratio
+        const scaledWidth = viewportHeight * targetAspectRatio;
+        gamePage.style.width = `${scaledWidth}px`;
+        gamePage.style.height = `${viewportHeight}px`;
+    } else {
+        // Viewport is taller than the target aspect ratio
+        const scaledHeight = viewportWidth / targetAspectRatio;
+        gamePage.style.width = `${viewportWidth}px`;
+        gamePage.style.height = `${scaledHeight}px`;
+    }
+
+    // Ensure gameMenu stays aligned to the right side of the screen
+    gameMenu.style.top = '0';
+    gameMenu.style.right = '0';
+}
+
+window.addEventListener('resize', adjustAspectRatio);
+window.addEventListener('load', adjustAspectRatio);
+
 function drawGame(grid, rows, cols, enemies, towers, baseHealth, money, wave) {
     // Clear the canvas
     ctx.clearRect(0, 0, gameBoard.width, gameBoard.height);

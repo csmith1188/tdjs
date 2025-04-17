@@ -7,50 +7,60 @@
     <title>Tower Defense</title>
 
     <style>
-        #mainPage {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgb(68, 68, 68);
-            overflow-x: hidden;
-            overflow-y: hidden;
-            min-width: 800px;
-        }
-
         #backgroundPage {
             position: absolute;
             background-color: rgb(68, 68, 68);
             bottom: 0;
             left: 0;
             width: calc(100%);
-            height: calc(100% - calc(100vw / 2));
+            height: 0;
+            /* height: calc(100% - calc(100vw / 2)); */
             z-index: 10;
         }
 
-        #gameBoard {
+        #mainPage {
             position: absolute;
-            background-color: black;
             top: 0;
             left: 0;
-            width: 84.1vw;
-            height: calc(100vw / 2);
-            min-width: calc(800px * 0.841);
-            min-height: 400px;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgb(68, 68, 68);
+            overflow: hidden;
+        }
+
+        #gamePage {
+            position: absolute;
+            background-color: rgb(68, 68, 68);
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            /* Use full height */
+            display: flex;
+            /* Enable Flexbox */
+            flex-direction: row;
+            /* Arrange children horizontally */
             z-index: 0;
         }
 
+
+        #gameBoard {
+            background-color: black;
+            flex: 4;
+            /* Take up 80% of the width */
+            height: 100%;
+            /* Match the height of #gamePage */
+            z-index: 1;
+        }
+
         #gameMenu {
-            position: absolute;
+            position: relative;
             background-color: dimgray;
-            top: 0;
-            right: 0;
-            width: 15.9vw;
-            height: calc(100vw / 2);
-            min-width: calc(800px * 0.159);
-            min-height: calc(400px);
-            z-index: 0;
+            flex: 1;
+            /* Take up 20% of the width */
+            height: 100%;
+            /* Match the height of #gamePage */
+            z-index: 1;
         }
 
         #programMenu {
@@ -84,10 +94,10 @@
         }
 
         #waveMenu {
-            position: absolute;
+            position: relative;
             background-color: black;
             border: none;
-            bottom: 0;
+            top: 80%;
             left: 0;
             width: 100%;
             height: 12.5%;
@@ -97,7 +107,7 @@
         }
 
         #waveButton {
-            position: absolute;
+            position: relative;
             background-color: #1e1e1e;
             border: none;
             color: white;
@@ -110,7 +120,7 @@
             cursor: pointer;
             border-radius: 15px;
             width: 100%;
-            height: 100%;
+            height: 90%;
         }
 
         #gameOverPage {
@@ -158,43 +168,46 @@
             color: white;
             font-size: calc(0.4rem + 0.2vw);
         }
-
-
-
     </style>
 </head>
 
 <body>
     <div id="mainPage">
-        <canvas id="gameBoard">
-            <p id="baseHealth">Health: </p>
-            <p id="money">Bitpogs: </p>
-            <p id="wave">Wave: </p>
-        </canvas>
-        <div id="gameOverPage">
-            <h1 id="gameOverText">Game Over!</h1>
-            <button id="restartButton" onclick="restartGame()">Restart</button>
-        </div>
-        <div id="backgroundPage"></div>
-        <div id="gameMenu">
-            <div id="gameMenuShop"></div>
-            <div id="waveMenu">
-                <button id="waveButton" onclick="sendWave()">Send Wave</button>
+        <div id="gamePage">
+            <canvas id="gameBoard">
+                <p id="baseHealth">Health: </p>
+                <p id="money">Bitpogs: </p>
+                <p id="wave">Wave: </p>
+            </canvas>
+            <div id="gameOverPage">
+                <h1 id="gameOverText">Game Over!</h1>
+                <button id="restartButton" onclick="restartGame()">Restart</button>
             </div>
-        </div>
-        <div id="towerMenu">
-            <div id="programMenu">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                    <button onclick="runProgram()" class="programButton" style="flex: 1; margin-right: 5px;">Run Program</button>
-                    <button onclick="clearProgram()" class="programButton" style="flex: 1; margin-right: 5px;">Clear Program</button>
-                    <button onclick="saveProgram()" class="programButton" style="flex: 1; margin-right: 5px;">Save Program</button>
-                    <button onclick="loadProgram()" class="programButton" style="flex: 1;">Load A Program</button>
+            <div id="backgroundPage"></div>
+            <div id="gameMenu">
+                <div id="gameMenuShop"></div>
+                <div id="waveMenu">
+                    <button id="waveButton" onclick="sendWave()">Send Wave</button>
                 </div>
-                <textarea id="programBox" name="programBox" cols="22" rows="10" style="resize: none; font-family: 'Courier New', monospace; white-space: pre; overflow-x: auto; background-color: #1e1e1e; color: #d4d4d4; border: 1px solid #3c3c3c; padding: 5px; line-height: 1.5; width: 100%; height: 100%; box-sizing: border-box; border-bottom-right-radius: 15px;"></textarea>
+            </div>
+            <div id="towerMenu">
+                <div id="programMenu">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <button onclick="runProgram()" class="programButton" style="flex: 1; margin-right: 5px;">Run
+                            Program</button>
+                        <button onclick="clearProgram()" class="programButton" style="flex: 1; margin-right: 5px;">Clear
+                            Program</button>
+                        <button onclick="saveProgram()" class="programButton" style="flex: 1; margin-right: 5px;">Save
+                            Program</button>
+                        <button onclick="loadProgram()" class="programButton" style="flex: 1;">Load A Program</button>
+                    </div>
+                    <textarea id="programBox" name="programBox" cols="22" rows="10"
+                        style="resize: none; font-family: 'Courier New', monospace; white-space: pre; overflow-x: auto; background-color: #1e1e1e; color: #d4d4d4; border: 1px solid #3c3c3c; padding: 5px; line-height: 1.5; width: 100%; height: 100%; box-sizing: border-box; border-bottom-right-radius: 15px;"></textarea>
+                </div>
             </div>
         </div>
     </div>
-    
+
     <script src="/socket.io/socket.io.js"></script>
     <script src="gameclientside.js"></script>
 </body>

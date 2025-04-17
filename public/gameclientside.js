@@ -137,10 +137,9 @@ function getShopItems(towerList) {
         const item = document.createElement('button');
         item.name = tower.name;
         item.innerHTML = tower.name;
-        item.style.width = "7.95vw";
-        item.style.minWidth = (800 * 0.0795) + "px";
-        item.style.height = "7.95vw";
-        item.style.minHeight = (800 * 0.0795) + "px";
+        const sideLength = towerShop.offsetWidth * 0.5; // Calculate side length based on 50% of the parent width
+        item.style.width = `${sideLength}px`;
+        item.style.height = `${sideLength}px`;
         item.style.backgroundColor = "white";
         item.addEventListener('mouseover', function () {
             item.style.backgroundColor = "gray";
@@ -161,9 +160,19 @@ function getShopItems(towerList) {
                 enableTowerPlacement();
             }
         });
+        item.className = 'towerShopItem';
         item.appendChild(itemPrice);
         towerShop.appendChild(item);
     });
+}
+
+function resizeShopItems() {
+    const items = towerShop.getElementsByClassName('towerShopItem');
+    const sideLength = towerShop.offsetWidth * 0.5; // Calculate side length based on 50% of the parent width
+    for (let i = 0; i < items.length; i++) {
+        items[i].style.width = `${sideLength}px`;
+        items[i].style.height = `${sideLength}px`;
+    }
 }
 
 function getCanvasRatio(canvas) {
@@ -181,28 +190,41 @@ function getCanvasRatio(canvas) {
 }
 
 function adjustAspectRatio() {
-    const targetAspectRatio = 16 / 9; // Standard aspect ratio
+    const targetAspectRatio = 4 / 3; // Desired aspect ratio
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
-    const currentAspectRatio = viewportWidth / viewportHeight;
 
     const gamePage = document.getElementById('gamePage');
 
-    if (currentAspectRatio > targetAspectRatio) {
+    // Calculate the maximum size that fits within the viewport while maintaining the aspect ratio
+    let scaledWidth, scaledHeight;
+
+    if (viewportWidth / viewportHeight > targetAspectRatio) {
         // Viewport is wider than the target aspect ratio
-        const scaledWidth = viewportHeight * targetAspectRatio;
-        gamePage.style.width = `${scaledWidth}px`;
-        gamePage.style.height = `${viewportHeight}px`;
+        scaledHeight = viewportHeight;
+        scaledWidth = scaledHeight * targetAspectRatio;
     } else {
         // Viewport is taller than the target aspect ratio
-        const scaledHeight = viewportWidth / targetAspectRatio;
-        gamePage.style.width = `${viewportWidth}px`;
-        gamePage.style.height = `${scaledHeight}px`;
+        scaledWidth = viewportWidth;
+        scaledHeight = scaledWidth / targetAspectRatio;
     }
 
-    // Ensure gameMenu stays aligned to the right side of the screen
-    gameMenu.style.top = '0';
-    gameMenu.style.right = '0';
+    // Apply the calculated dimensions to the gamePage element
+    gamePage.style.width = `${scaledWidth}px`;
+    gamePage.style.height = `${scaledHeight}px`;
+
+    // Center the gamePage element within the viewport
+    gamePage.style.position = 'absolute';
+    gamePage.style.left = `${(viewportWidth - scaledWidth) / 2}px`;
+    gamePage.style.top = `${(viewportHeight - scaledHeight) / 2}px`;
+
+    // Ensure gameMenu stays aligned to the right side of the gamePage
+    const gameMenu = document.getElementById('gameMenu');
+    if (gameMenu) {
+        gameMenu.style.position = 'absolute';
+        gameMenu.style.top = '0';
+        gameMenu.style.right = '0';
+    }
 }
 
 window.addEventListener('resize', adjustAspectRatio);

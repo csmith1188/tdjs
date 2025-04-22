@@ -7,40 +7,44 @@
     <title>Tower Defense</title>
 
     <style>
+
         #mainPage {
             position: absolute;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
+            width: 100vw;
+            height: 100vh;
             background-color: rgb(68, 68, 68);
-            overflow-x: hidden;
-            overflow-y: hidden;
-            min-width: 800px;
+            overflow: hidden;
+            z-index: 1;
         }
 
-        #gameBoard {
+        #gamePage {
             position: absolute;
-            background-color: black;
+            background-color: rgb(68, 68, 68);
             top: 0;
             left: 0;
-            width: 84.1vw;
-            height: calc(100vw / 2);
-            min-width: calc(800px * 0.841);
-            min-height: 400px;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: row;
             z-index: 0;
         }
 
-        #gameShopMenu {
-            position: absolute;
+
+        #gameBoard {
+            background-color: black;
+            width: 85%;
+            height: 100%;
+            z-index: 2;
+        }
+
+        #gameMenu {
+            position: relative;
             background-color: dimgray;
-            top: 0;
-            right: 0;
-            width: 15.9vw;
-            height: calc(100vw / 2);
-            min-width: calc(800px * 0.159);
-            min-height: calc(400px);
-            z-index: 0;
+            width: 15%;
+            height: 100%;
+            z-index: 2;
         }
 
         #programMenu {
@@ -51,7 +55,7 @@
             left: 0;
             width: 100%;
             height: 25%;
-            z-index: 1;
+            z-index: 0;
             min-width: 100%;
             min-height: 100px;
         }
@@ -73,14 +77,45 @@
             transform: translate(-100%, 0);
         }
 
-        #baseHealth, #money, #wave {
+        #waveMenu {
             position: relative;
-            color: white;
+            background-color: black;
+            border: none;
+            top: 80%;
+            left: 0;
+            width: 100%;
+            height: 12.5%;
             z-index: 1;
-            top: 0;
-            left: 1%;
+            min-width: 100%;
+            min-height: 100px;
+        }
+
+        #waveButton {
+            position: relative;
+            background-color: #1e1e1e;
+            border: none;
+            color: white;
+            font-size: calc(0.4rem + 0.2vw);
+            padding: 10px;
+            text-align: center;
+            text-decoration: none;
             display: inline-block;
-            margin-right: 10px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 15px;
+            width: 90%;
+            height: 90%;
+            left: 4%;
+        }
+
+        #gameOverPage {
+            position: absolute;
+            background-color: rgb(1, 151, 21);
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
         }
 
         .programButton {
@@ -90,30 +125,74 @@
             font-size: calc(0.4rem + 0.2vw);
         }
 
+        #gameOverPage {
+            display: none;
+            top: 40%;
+            left: 40%;
+            width: 20%;
+            height: 20%;
+            z-index: 2;
+        }
+
+        #gameOverText {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: calc(1rem + 1vw);
+        }
+
+        #restartButton {
+            position: absolute;
+            top: 80%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #1e1e1e;
+            border: none;
+            color: white;
+            font-size: calc(0.4rem + 0.2vw);
+        }
     </style>
 </head>
 
 <body>
     <div id="mainPage">
-        <p id="baseHealth">Health: </p>
-        <p id="money">Bitpogs: </p>
-        <p id="wave">Wave: </p>
-        <canvas id="gameBoard">
-        </canvas>
-        <div id="gameShopMenu"></div>
-        <div id="towerMenu">
-            <div id="programMenu">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                    <button onclick="runProgram()" class="programButton" style="flex: 1; margin-right: 5px;">Run Program</button>
-                    <button onclick="clearProgram()" class="programButton" style="flex: 1; margin-right: 5px;">Clear Program</button>
-                    <button onclick="saveProgram()" class="programButton" style="flex: 1; margin-right: 5px;">Save Program</button>
-                    <button onclick="loadProgram()" class="programButton" style="flex: 1;">Load A Program</button>
+        <div id="gamePage">
+            <canvas id="gameBoard">
+                <p id="baseHealth">Health: </p>
+                <p id="money">Bitpogs: </p>
+                <p id="wave">Wave: </p>
+            </canvas>
+            <div id="gameOverPage">
+                <h1 id="gameOverText">Game Over!</h1>
+                <button id="restartButton" onclick="restartGame()">Restart</button>
+            </div>
+            <div id="backgroundPage"></div>
+            <div id="gameMenu">
+                <div id="gameMenuShop"></div>
+                <div id="waveMenu">
+                    <button id="waveButton" onclick="sendWave()">Send Wave</button>
                 </div>
-                <textarea id="programBox" name="programBox" cols="22" rows="10" style="resize: none; font-family: 'Courier New', monospace; white-space: pre; overflow-x: auto; background-color: #1e1e1e; color: #d4d4d4; border: 1px solid #3c3c3c; padding: 5px; line-height: 1.5; width: 100%; height: 100%; box-sizing: border-box; border-bottom-right-radius: 15px;"></textarea>
+            </div>
+            <div id="towerMenu">
+                <div id="programMenu">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <button onclick="runProgram()" class="programButton" style="flex: 1; margin-right: 5px;">Run
+                            Program</button>
+                        <button onclick="clearProgram()" class="programButton" style="flex: 1; margin-right: 5px;">Clear
+                            Program</button>
+                        <button onclick="saveProgram()" class="programButton" style="flex: 1; margin-right: 5px;">Save
+                            Program</button>
+                        <button onclick="loadProgram()" class="programButton" style="flex: 1;">Load A Program</button>
+                    </div>
+                    <textarea id="programBox" name="programBox" cols="22" rows="10"
+                        style="resize: none; font-family: 'Courier New', monospace; white-space: pre; overflow-x: auto; background-color: #1e1e1e; color: #d4d4d4; border: 1px solid #3c3c3c; padding: 5px; line-height: 1.5; width: 100%; height: 100%; box-sizing: border-box; border-bottom-right-radius: 15px;"></textarea>
+                </div>
             </div>
         </div>
     </div>
-    
+
     <script src="/socket.io/socket.io.js"></script>
     <script src="gameclientside.js"></script>
 </body>

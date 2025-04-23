@@ -69,10 +69,23 @@ class Enemy {
         this.userIndex = userIndex;
         this.enemyType = enemyType;
         this.healthBorder = options.healthBorder || false;
-        this.distanceFromStart = 0
+        this.distanceFromStart = 0;
+        this.statuses = []; // Array to store active statuses
         this.updateStats();
         users[this.userIndex].enemies.push(this);
         this.updatePosition(this.userIndex);
+    }
+
+    addStatus(status) {
+        this.statuses.push(status);
+    }
+
+    updateStatuses() {
+        this.statuses = this.statuses.filter(status => {
+            status.apply(this); // Apply the status effect
+            status.decrementDuration(); // Decrease the duration
+            return !status.isExpired(); // Keep only active statuses
+        });
     }
 
     updateStats() {
@@ -105,7 +118,6 @@ class Enemy {
                 this.color = 'white';
                 this.size = 55;
                 break;
-            // Add other enemy types as needed
         }
         this.updateHealthBorder();
     }
@@ -119,14 +131,15 @@ class Enemy {
 
     updatePosition() {
         const enemyIndex = users[this.userIndex].enemies.findIndex(e => e === this);
-        this.distanceFromStart++
+        this.distanceFromStart++;
         if (enemyIndex !== -1) {
             users[this.userIndex].enemies[enemyIndex] = this;
         }
-
     }
 
     move() {
+        this.updateStatuses(); // Update statuses before moving
+
         const currentPoint = pathPoint.find(point => point.x === this.x && point.y === this.y);
         if (currentPoint) {
             const currentIndex = pathPoint.indexOf(currentPoint);
@@ -134,34 +147,41 @@ class Enemy {
                 this.nextX = pathPoint[currentIndex + 1].x;
                 this.nextY = pathPoint[currentIndex + 1].y;
             } else {
-                users[this.userIndex].health -= this.health
-                users[this.userIndex].enemies.splice(users[this.userIndex].enemies.indexOf(this), 1)
+                users[this.userIndex].health -= this.health;
+                users[this.userIndex].enemies.splice(users[this.userIndex].enemies.indexOf(this), 1);
                 if (users[this.userIndex].health <= 0) {
-                    users[this.userIndex].health = 0
-                    users[this.userIndex].gameOver = true
-                    users[this.userIndex].gameIsRunning = false
+                    users[this.userIndex].health = 0;
+                    users[this.userIndex].gameOver = true;
+                    users[this.userIndex].gameIsRunning = false;
                 }
             }
         }
 
+        // Apply speed reduction from statuses
+        let effectiveSpeed = this.speed;
+        const slowStatus = this.statuses.find(status => status.type === 'slow');
+        if (slowStatus) {
+            effectiveSpeed *= slowStatus.value; // Reduce speed by a percentage
+        }
+
         // Move towards the target cell
         if (this.x < this.nextX) {
-            this.x += this.speed / 1000;
+            this.x += effectiveSpeed / 1000;
             if (this.x > this.nextX) {
                 this.x = this.nextX;
             }
         } else if (this.x > this.nextX) {
-            this.x -= this.speed / 1000;
+            this.x -= effectiveSpeed / 1000;
             if (this.x < this.nextX) {
                 this.x = this.nextX;
             }
         } else if (this.y < this.nextY) {
-            this.y += this.speed / 1000;
+            this.y += effectiveSpeed / 1000;
             if (this.y > this.nextY) {
                 this.y = this.nextY;
             }
         } else if (this.y > this.nextY) {
-            this.y -= this.speed / 1000;
+            this.y -= effectiveSpeed / 1000;
             if (this.y < this.nextY) {
                 this.y = this.nextY;
             }
@@ -184,10 +204,11 @@ class Tower {
         this.userIndex = userIndex;
         this.lastShotTime = 0;
         this.userCode = null;
+        this.statuses = []; // Array to store active statuses
         switch (presetTower) {
             case 'basic':
-                this.size = 10
-                this.color = 'lightblue'
+                this.size = 10;
+                this.color = 'lightblue';
                 this.range = 4;
                 this.damage = 2;
                 this.fireRate = 2;
@@ -195,8 +216,8 @@ class Tower {
                 this.price = 10;
                 break;
             case 'sniper':
-                this.size = 10
-                this.color = 'lightcoral'
+                this.size = 10;
+                this.color = 'lightcoral';
                 this.range = 8;
                 this.damage = 10;
                 this.fireRate = 0.5;
@@ -204,8 +225,8 @@ class Tower {
                 this.price = 20;
                 break;
             case 'machineGun':
-                this.size = 10
-                this.color = 'lightgreen'
+                this.size = 10;
+                this.color = 'lightgreen';
                 this.range = 3;
                 this.damage = 1;
                 this.fireRate = 10;
@@ -218,7 +239,21 @@ class Tower {
         this.targetingType = 'first';
     }
 
+    addStatus(status) {
+        this.statuses.push(status);
+    }
+
+    updateStatuses() {
+        this.statuses = this.statuses.filter(status => {
+            status.apply(this); // Apply the status effect
+            status.decrementDuration(); // Decrease the duration
+            return !status.isExpired(); // Keep only active statuses
+        });
+    }
+
     findTarget(ticks) {
+        this.updateStatuses(); // Update statuses before finding a target
+
         this.currentTime = ticks;
 
         this.getEnemies = () => {
@@ -240,6 +275,7 @@ class Tower {
                 return false;
             }
         };
+
         if (this.userCode && !this.scriptIsRunning) {
             this.scriptIsRunning = true;
 
@@ -247,14 +283,13 @@ class Tower {
             let context = vm.createContext(this.userCode.sandbox);
 
             try {
-                // Updated sanitizeData function
                 const sanitizeData = (data, seen = new WeakSet()) => {
                     if (typeof data !== 'object' || data === null) {
-                        return data; // Return primitives and functions as-is
+                        return data;
                     }
 
                     if (seen.has(data)) {
-                        return; // Remove circular reference
+                        return;
                     }
                     seen.add(data);
 
@@ -265,7 +300,7 @@ class Tower {
                     const sanitized = {};
                     for (const key in data) {
                         if (typeof data[key] === 'function') {
-                            sanitized[key] = data[key]; // Preserve functions
+                            sanitized[key] = data[key];
                         } else {
                             sanitized[key] = sanitizeData(data[key], seen);
                         }
@@ -275,15 +310,15 @@ class Tower {
 
                 this.userCode.sandbox = sanitizeData(this.userCode.sandbox);
 
-                script.runInContext(context, { timeout: 10 }); // Add a timeout to prevent infinite loops
+                script.runInContext(context, { timeout: 10 });
             } catch (err) {
                 console.error('Error running script:', err);
             } finally {
-                script = null; // Delete the script after execution
+                script = null;
             }
             this.scriptIsRunning = false;
         }
-    };
+    }
 
     shoot(target, currentTime) {
         const enemyInstance = target;
@@ -311,6 +346,29 @@ class Tower {
         if (enemyInstance.healthBorder) {
             enemyInstance.updateHealthBorder();
         }
+    }
+}
+
+// Statuses
+class Status {
+    constructor(type, duration, effect) {
+        this.type = type; // e.g., 'slow', 'boost', 'poison'
+        this.duration = duration; // Duration in ticks
+        this.effect = effect; // Function to apply the effect
+    }
+
+    apply(target) {
+        if (this.effect) {
+            this.effect(target); // Apply the effect to the target (tower or enemy)
+        }
+    }
+
+    decrementDuration() {
+        this.duration--; // Reduce the duration by 1 tick
+    }
+
+    isExpired() {
+        return this.duration <= 0; // Check if the status has expired
     }
 }
 
@@ -380,8 +438,6 @@ function connection(socket, io) {
     global.rows = rows;
     global.cols = cols;
     global.grid = calculatePath(grid);
-    let tower = new Tower('basic', userIndex, {}, 10, 10);
-    users[userIndex].towers.push(tower);
     socket.emit('gameData', [{ grid, rows, cols }, users[userIndex].enemies, users[userIndex].towers]);
 
     socket.on('towerPlace', placementInformation => {
@@ -669,6 +725,12 @@ function connection(socket, io) {
         }
     });
 
+    socket.on('sendWave', () => {
+        users[userIndex].currentWave++;
+        const waveCopy = JSON.parse(JSON.stringify(waves[users[userIndex].currentWave]));
+        users[userIndex].waveQueue.push({ wave: waveCopy, userIndex });
+    })
+
     socket.on('restartGame', restartWhere => {
         users[userIndex].gameIsRunning = true
         users[userIndex].gameOver = false
@@ -694,20 +756,25 @@ let gameLoop = setInterval(() => {
     users.forEach((user) => {
         let userIndex = user.userIndex;
         let socket = user.socket;
+
         // Ensures that the user is still connected
         if (userIndex != -1) {
             if (!user.gameOver && user.gameIsRunning) {
-                // Handles the movement of each enemy
+                // Handles the movement and status updates of each enemy
                 user.enemies.forEach((enemy) => {
-                    enemy.move();
+                    // enemy.updateStatuses(); // Update enemy statuses
+                    enemy.move(); // Move the enemy
                 });
-                // Handles the shooting of each tower
+
+                // Handles the shooting and status updates of each tower
                 user.towers.forEach(tower => {
-                    tower.findTarget(ticks);             
+                    // tower.updateStatuses(); // Update tower statuses
+                    tower.findTarget(ticks); // Find a target for the tower
                     if (ticks - tower.lastShotTime >= 30) {
                         tower.shootLocation = null;
                     }
                 });
+
                 // Handles the wave queue and sends the sections of the wave to the section queue
                 if (user.waveQueue.length > 0) {
                     if (users[userIndex].waveQueue[0].wave.length > 0) {
@@ -722,7 +789,6 @@ let gameLoop = setInterval(() => {
                             } else {
                                 users[userIndex].waveQueue.splice(0, 1);
                             }
-
                         } else {
                             currentSection.wait -= 1;
                         }
@@ -730,6 +796,7 @@ let gameLoop = setInterval(() => {
                         users[userIndex].waveQueue.splice(0, 1);
                     }
                 }
+
                 // Handles the section queue and spawns enemies from the queue
                 if (user.sectionQueue.length > 0) {
                     const request = users[userIndex].sectionQueue[0];
@@ -747,12 +814,19 @@ let gameLoop = setInterval(() => {
                 }
             }
         }
+
         // Sends the game data to the client
-        socket.emit('gameData', { gridData: { grid, rows, cols }, enemyData: user.enemies, towerData: user.towers, baseHealth: user.health, money: user.money, wave: user.currentWave, gameOverStatus: user.gameOver, gameRunningStatus: user.gameIsRunning });
-
-
-    })
-
+        socket.emit('gameData', {
+            gridData: { grid, rows, cols },
+            enemyData: user.enemies,
+            towerData: user.towers,
+            baseHealth: user.health,
+            money: user.money,
+            wave: user.currentWave,
+            gameOverStatus: user.gameOver,
+            gameRunningStatus: user.gameIsRunning
+        });
+    });
 }, 1000 / frameRate);
 
 module.exports = {

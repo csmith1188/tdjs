@@ -1,6 +1,7 @@
 const vm = require('vm')
 const acorn = require('acorn')
 const walk = require('acorn-walk');
+const { log } = require('console');
 const frameRate = 60;
 const pathPoint = [{ y: 2, x: 0 }, { y: 2, x: 8 }, { y: 12, x: 8 }, { y: 12, x: 16 }, { y: 2, x: 16 }, { y: 2, x: 24 }, { y: 18, x: 24 }, { y: 18, x: 31 }];
 const pathPoint2 = [{ y: 2, x: 0 }, { y: 2, x: 25 }, { y: 6, x: 25 }, { y: 6, x: 8 }, { y: 10, x: 8 }, { y: 10, x: 16 }, { y: 14, x: 16 }, { y: 14, x: 24 }, { y: 18, x: 24 }, { y: 18, x: 31 }];
@@ -253,64 +254,68 @@ class Tower {
 
     findTarget(ticks) {
         this.updateStatuses(); // Update statuses before finding a target
-
+    
         this.currentTime = ticks;
-
+    
         this.getEnemies = () => {
             return users[this.userIndex].enemies;
         };
-
+    
         this.getDistance = (enemy) => {
             return Math.sqrt(Math.pow(enemy.x - this.x, 2) + Math.pow(enemy.y - this.y, 2));
         };
-
+    
         this.getDistanceFromStart = (enemy) => {
             return enemy.distanceFromStart;
         };
-
+    
         this.towerCanShoot = () => {
-            if (this.currentTime - this.lastShotTime >= (this.fireRate / (1000 / frameRate))) {
+            if (this.currentTime - this.lastShotTime >= (frameRate / this.fireRate)) {
                 return true;
             } else {
                 return false;
             }
         };
-
+    
         if (this.userCode && !this.scriptIsRunning) {
             this.scriptIsRunning = true;
-
+    
             let script = new vm.Script(this.userCode.program);
             let context = vm.createContext(this.userCode.sandbox);
-
+    
             try {
                 const sanitizeData = (data, seen = new WeakSet()) => {
                     if (typeof data !== 'object' || data === null) {
                         return data;
                     }
-
+    
                     if (seen.has(data)) {
-                        return;
+                        return; // Prevent infinite recursion
                     }
                     seen.add(data);
-
+    
                     if (Array.isArray(data)) {
                         return data.map(item => sanitizeData(item, seen));
                     }
-
+    
                     const sanitized = {};
                     for (const key in data) {
-                        if (typeof data[key] === 'function') {
-                            sanitized[key] = data[key];
-                        } else {
-                            sanitized[key] = sanitizeData(data[key], seen);
+                        try {
+                            if (typeof data[key] === 'function') {
+                                sanitized[key] = data[key];
+                            } else {
+                                sanitized[key] = sanitizeData(data[key], seen);
+                            }
+                        } catch (err) {
+                            console.warn(`Failed to sanitize key "${key}":`, err.message);
                         }
                     }
                     return sanitized;
                 };
-
+    
                 this.userCode.sandbox = sanitizeData(this.userCode.sandbox);
-
-                script.runInContext(context, { timeout: 10 });
+    
+                script.runInContext(context, { timeout: 50 }); // Increased timeout to 50ms
             } catch (err) {
                 console.error('Error running script:', err);
             } finally {
@@ -465,7 +470,7 @@ function connection(socket, io) {
             shoot: (enemy) => {
                 users[userIndex].towers[tower].shoot(enemy, ticks);
             },
-            towerCanShoot: () => users[userIndex].towers[tower].towerCanShoot()
+            canShoot: () => users[userIndex].towers[tower].towerCanShoot()
         };
 
         const prohibitedStatements = [
@@ -662,18 +667,12 @@ function connection(socket, io) {
                 require: undefined,
                 child_process: undefined,
             };
-            Object.freeze(Object.prototype);
 
-            Object.defineProperty(Function.prototype, 'constructor', {
-                value: undefined,
-                writable: false,
-                configurable: false,
-            });
             console.log('Normalized Program:', normalizedProgram);
-            let script = new vm.Script(program);
-            let context = vm.createContext(sandbox);
-            script.runInContext(context, { timeout: 250 });
-            // users[userIndex].towers[tower].userCode = { program: program, sandbox: sandbox };
+            // let script = new vm.Script(program);
+            // let context = vm.createContext(sandbox);
+            // script.runInContext(context, { timeout: 250 });
+            users[userIndex].towers[tower].userCode = { program: program, sandbox: sandbox };
             console.log('Program executed successfully.', program);
         } catch (error) {
             if (error.message.includes('Script execution timed out')) {
@@ -763,7 +762,7 @@ let gameLoop = setInterval(() => {
                 // Handles the movement and status updates of each enemy
                 user.enemies.forEach((enemy) => {
                     // enemy.updateStatuses(); // Update enemy statuses
-                    enemy.move(); // Move the enemy
+                    enemy.move(); // Move the enemy    
                 });
 
                 // Handles the shooting and status updates of each tower

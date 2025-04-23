@@ -137,7 +137,7 @@ function getShopItems(towerList) {
         const item = document.createElement('button');
         item.name = tower.name;
         item.innerHTML = tower.name;
-        const sideLength = towerShop.offsetWidth * 0.5; // Calculate side length based on 50% of the parent width
+        const sideLength = towerShop.offsetWidth * 0.499; // Calculate side length based on 50% of the parent width
         item.style.width = `${sideLength}px`;
         item.style.height = `${sideLength}px`;
         item.style.backgroundColor = "white";
@@ -168,10 +168,12 @@ function getShopItems(towerList) {
 
 function resizeShopItems() {
     const items = towerShop.getElementsByClassName('towerShopItem');
-    const sideLength = towerShop.offsetWidth * 0.5; // Calculate side length based on 50% of the parent width
+    const parentWidth = towerShop.getBoundingClientRect().width; // Get the current width of the parent element
+    const sideLength = parentWidth * 0.499; // Calculate side length based on 50% of the parent width
     for (let i = 0; i < items.length; i++) {
         items[i].style.width = `${sideLength}px`;
         items[i].style.height = `${sideLength}px`;
+        items[i].style.fontSize = `${sideLength / 10}px`; // Adjust font size based on the new size
     }
 }
 
@@ -190,7 +192,7 @@ function getCanvasRatio(canvas) {
 }
 
 function adjustAspectRatio() {
-    const targetAspectRatio = 4 / 3; // Desired aspect ratio
+    const targetAspectRatio = 2/1; // Desired aspect ratio
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
 
@@ -225,9 +227,27 @@ function adjustAspectRatio() {
         gameMenu.style.top = '0';
         gameMenu.style.right = '0';
     }
+
+    const waveButton = document.getElementById('waveButton');
+    if (waveButton) {
+        const buttonWidth = waveButton.getBoundingClientRect().width;
+        waveButton.style.fontSize = `${buttonWidth / 10}px`; // Adjust font size based on button width
+    }
+
+    const towerMenu = document.getElementById('towerMenu');
+    if (towerMenu) {
+        const gameBoardHeight = gameBoard.getBoundingClientRect().height;
+
+        // Set the height of the towerMenu to 80% of the gameBoard's height
+        towerMenu.style.height = `${gameBoardHeight * 0.8}px`;
+
+        // Position the towerMenu aligned with half the height of the gameBoard
+        towerMenu.style.position = 'absolute';
+        towerMenu.style.top = `${(gameBoardHeight - towerMenu.offsetHeight) / 2}px`;
+    }
 }
 
-window.addEventListener('resize', adjustAspectRatio);
+window.addEventListener('resize', () => {adjustAspectRatio(); resizeShopItems();});
 window.addEventListener('load', adjustAspectRatio);
 
 function drawGame(grid, rows, cols, enemies, towers, baseHealth, money, wave) {
@@ -330,8 +350,6 @@ socket.on('gameData', (data) => {
 });
 
 socket.on('towerSelected', (data) => {
-    const towerX = data.x;
-    const towerY = data.y;
     let towerMenu = document.getElementById('towerMenu');
     let programMenu = document.getElementById('programBox');
     let towerRange = document.getElementById('towerRange');
@@ -340,8 +358,7 @@ socket.on('towerSelected', (data) => {
         towerMenu.style.transform = 'translate(0, 0)';
         selectedTower = data;
         if (selectedTower.userCode != null) {
-            programMenu.value = selectedTower.userCode;
-            towerRange.value = selectedTower.range;
+            programMenu.value = selectedTower.userCode.program;
         }
     } else {
         selectedTower = null;

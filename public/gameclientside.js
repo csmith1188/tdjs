@@ -192,7 +192,7 @@ function getCanvasRatio(canvas) {
 }
 
 function adjustAspectRatio() {
-    const targetAspectRatio = 2/1; // Desired aspect ratio
+    const targetAspectRatio = 2 / 1; // Desired aspect ratio
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
 
@@ -245,9 +245,31 @@ function adjustAspectRatio() {
         towerMenu.style.position = 'absolute';
         towerMenu.style.top = `${(gameBoardHeight - towerMenu.offsetHeight) / 2}px`;
     }
+
+    const programMenu = document.getElementById('programMenu');
+    if (programMenu) {
+        programMenu.style.height = `${towerMenu.offsetHeight * 0.4}px`;
+        programMenu.style.width = '100%';
+        programMenu.style.top = `${towerMenu.offsetHeight * 0.6}px`;
+    }
+
+    const programBox = document.getElementById('programBox');
+    if (programBox) {
+        programBox.style.height = '100%';
+        programBox.style.width = '100%';
+    }
+
+    const programButtons = towerMenu.querySelectorAll('.programButton');
+    if (programButtons) {
+        programButtons.forEach(button => {
+            button.style.height = `${towerMenu.offsetHeight * 0.04}px`; // Set button height to 8% of towerMenu height
+            button.style.width = `${programMenu.offsetWidth * 0.4}px`; // Set button width to 40% of programMenu width
+            button.style.fontSize = `${programButtons[0].offsetHeight / 3}px`; // Adjust font size based on button height
+        });
+    }
 }
 
-window.addEventListener('resize', () => {adjustAspectRatio(); resizeShopItems();});
+window.addEventListener('resize', () => { adjustAspectRatio(); resizeShopItems(); });
 window.addEventListener('load', adjustAspectRatio);
 
 function drawGame(grid, rows, cols, enemies, towers, baseHealth, money, wave) {

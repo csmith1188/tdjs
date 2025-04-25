@@ -158,6 +158,24 @@
             color: white;
             font-size: calc(0.4rem + 0.2vw);
         }
+
+        #settings {
+            position: absolute;
+            top: 0.5%;
+            left: 82.25%;
+            width: 2.5%;
+            height: 5%;
+            z-index: 5;
+            background-color: #1e1e1e;
+            border: none;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            cursor: pointer;
+            border-radius: 15px;
+        }
     </style>
 </head>
 
@@ -169,6 +187,7 @@
                 <p id="money">Bitpogs: </p>
                 <p id="wave">Wave: </p>
             </canvas>
+            <button id="settings"></button>
             <div id="gameOverPage">
                 <h1 id="gameOverText">Game Over!</h1>
                 <button id="restartButton" onclick="restartGame()">Restart</button>

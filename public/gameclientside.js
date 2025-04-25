@@ -304,7 +304,8 @@ function drawGame(grid, rows, cols, enemies, towers, baseHealth, money, wave) {
     ctx.fillText(`Bitpogs: ${money}`, 80, 20);
 
     // Display wave
-    ctx.fillText(`Wave: ${parseInt(wave) + 1} / 10`, 920, 20);
+    const waveLength = (parseInt(wave)+1).toString().length;
+    ctx.fillText(`Wave: ${parseInt(wave) + 1} / 10`, 930 - (waveLength * 10), 20);
 }
 
 function restartGame() {

@@ -1,6 +1,7 @@
 const vm = require('vm')
 const acorn = require('acorn')
 const walk = require('acorn-walk');
+const { log } = require('console');
 const frameRate = 60;
 const pathPoint = [{ y: 2, x: 0 }, { y: 2, x: 8 }, { y: 12, x: 8 }, { y: 12, x: 16 }, { y: 2, x: 16 }, { y: 2, x: 24 }, { y: 18, x: 24 }, { y: 18, x: 31 }];
 const pathPoint2 = [{ y: 2, x: 0 }, { y: 2, x: 25 }, { y: 6, x: 25 }, { y: 6, x: 8 }, { y: 10, x: 8 }, { y: 10, x: 16 }, { y: 14, x: 16 }, { y: 14, x: 24 }, { y: 18, x: 24 }, { y: 18, x: 31 }];
@@ -71,16 +72,37 @@ class Enemy {
         this.healthBorder = options.healthBorder || false;
         this.distanceFromStart = 0;
         this.statuses = []; // Array to store active statuses
+
+        // Initialize original stats and effective stats
         this.updateStats();
+        this.effectiveStats = {
+            speed: this.speed,
+            armor: 0
+        };
+
         users[this.userIndex].enemies.push(this);
         this.updatePosition(this.userIndex);
+
+        // this.addStatus(slowStatus, 600, 10);
     }
 
-    addStatus(status) {
-        this.statuses.push(status);
+    addStatus(status, customDuration = null, strength = 1) {
+        // Clone the status before adding it
+        const clonedStatus = new Status(
+            status.type,
+            customDuration !== null ? customDuration : status.duration, // Use custom duration if provided
+            status.effect,
+            strength // Pass the strength to the cloned status
+        );
+        this.statuses.push(clonedStatus);
     }
 
     updateStatuses() {
+        // Reset effective stats to original stats before applying statuses
+        this.effectiveStats.speed = this.speed;
+        this.effectiveStats.health = this.health;
+        this.effectiveStats.armor = 0; // Reset armor or other stats
+
         this.statuses = this.statuses.filter(status => {
             status.apply(this); // Apply the status effect
             status.decrementDuration(); // Decrease the duration
@@ -89,6 +111,7 @@ class Enemy {
     }
 
     updateStats() {
+        // Set original stats based on enemy type
         switch (this.enemyType) {
             case 'normal':
                 this.health = 10;
@@ -119,6 +142,7 @@ class Enemy {
                 this.size = 55;
                 break;
         }
+
         this.updateHealthBorder();
     }
 
@@ -147,7 +171,7 @@ class Enemy {
                 this.nextX = pathPoint[currentIndex + 1].x;
                 this.nextY = pathPoint[currentIndex + 1].y;
             } else {
-                users[this.userIndex].health -= this.health;
+                users[this.userIndex].health -= this.effectiveStats.health;
                 users[this.userIndex].enemies.splice(users[this.userIndex].enemies.indexOf(this), 1);
                 if (users[this.userIndex].health <= 0) {
                     users[this.userIndex].health = 0;
@@ -157,31 +181,24 @@ class Enemy {
             }
         }
 
-        // Apply speed reduction from statuses
-        let effectiveSpeed = this.speed;
-        const slowStatus = this.statuses.find(status => status.type === 'slow');
-        if (slowStatus) {
-            effectiveSpeed *= slowStatus.value; // Reduce speed by a percentage
-        }
-
-        // Move towards the target cell
+        // Move towards the target cell using effective speed
         if (this.x < this.nextX) {
-            this.x += effectiveSpeed / 1000;
+            this.x += this.effectiveStats.speed / 1000;
             if (this.x > this.nextX) {
                 this.x = this.nextX;
             }
         } else if (this.x > this.nextX) {
-            this.x -= effectiveSpeed / 1000;
+            this.x -= this.effectiveStats.speed / 1000;
             if (this.x < this.nextX) {
                 this.x = this.nextX;
             }
         } else if (this.y < this.nextY) {
-            this.y += effectiveSpeed / 1000;
+            this.y += this.effectiveStats.speed / 1000;
             if (this.y > this.nextY) {
                 this.y = this.nextY;
             }
         } else if (this.y > this.nextY) {
-            this.y -= effectiveSpeed / 1000;
+            this.y -= this.effectiveStats.speed / 1000;
             if (this.y < this.nextY) {
                 this.y = this.nextY;
             }
@@ -205,6 +222,45 @@ class Tower {
         this.lastShotTime = 0;
         this.userCode = null;
         this.statuses = []; // Array to store active statuses
+
+        // Initialize original stats and effective stats
+        this.updateStats(presetTower);
+        this.effectiveStats = {
+            range: this.range,
+            damage: this.damage,
+            fireRate: this.fireRate
+        };
+
+        this.shootLocation = null;
+        this.damageCount = 0;
+        this.targetingType = 'first';
+    }
+
+    addStatus(status, customDuration = null, strength = 1) {
+        // Clone the status before adding it
+        const clonedStatus = new Status(
+            status.type,
+            customDuration !== null ? customDuration : status.duration, // Use custom duration if provided
+            status.effect,
+            strength // Pass the strength to the cloned status
+        );
+        this.statuses.push(clonedStatus);
+    }
+
+    updateStatuses() {
+        // Reset effective stats to original stats before applying statuses
+        this.effectiveStats.range = this.range;
+        this.effectiveStats.damage = this.damage;
+        this.effectiveStats.fireRate = this.fireRate;
+
+        this.statuses = this.statuses.filter(status => {
+            status.apply(this); // Apply the status effect
+            status.decrementDuration(); // Decrease the duration
+            return !status.isExpired(); // Keep only active statuses
+        });
+    }
+
+    updateStats(presetTower) {
         switch (presetTower) {
             case 'basic':
                 this.size = 10;
@@ -239,78 +295,70 @@ class Tower {
         this.targetingType = 'first';
     }
 
-    addStatus(status) {
-        this.statuses.push(status);
-    }
-
-    updateStatuses() {
-        this.statuses = this.statuses.filter(status => {
-            status.apply(this); // Apply the status effect
-            status.decrementDuration(); // Decrease the duration
-            return !status.isExpired(); // Keep only active statuses
-        });
-    }
-
     findTarget(ticks) {
         this.updateStatuses(); // Update statuses before finding a target
-
+    
         this.currentTime = ticks;
-
+    
         this.getEnemies = () => {
             return users[this.userIndex].enemies;
         };
-
+    
         this.getDistance = (enemy) => {
             return Math.sqrt(Math.pow(enemy.x - this.x, 2) + Math.pow(enemy.y - this.y, 2));
         };
-
+    
         this.getDistanceFromStart = (enemy) => {
             return enemy.distanceFromStart;
         };
-
+    
         this.towerCanShoot = () => {
-            if (this.currentTime - this.lastShotTime >= (this.fireRate / (1000 / frameRate))) {
+            if (this.currentTime - this.lastShotTime >= (frameRate / this.effectiveStats.fireRate)) {
                 return true;
             } else {
                 return false;
             }
         };
-
+    
         if (this.userCode && !this.scriptIsRunning) {
             this.scriptIsRunning = true;
-
+    
             let script = new vm.Script(this.userCode.program);
             let context = vm.createContext(this.userCode.sandbox);
-
+    
             try {
                 const sanitizeData = (data, seen = new WeakSet()) => {
                     if (typeof data !== 'object' || data === null) {
                         return data;
                     }
-
+    
                     if (seen.has(data)) {
-                        return;
+                        return; // Prevent infinite recursion
                     }
                     seen.add(data);
-
+    
                     if (Array.isArray(data)) {
                         return data.map(item => sanitizeData(item, seen));
                     }
-
+    
                     const sanitized = {};
                     for (const key in data) {
-                        if (typeof data[key] === 'function') {
-                            sanitized[key] = data[key];
-                        } else {
-                            sanitized[key] = sanitizeData(data[key], seen);
+                        try {
+                            if (typeof data[key] === 'function') {
+                                sanitized[key] = data[key];
+                            } else {
+                                sanitized[key] = sanitizeData(data[key], seen);
+                            }
+                        } catch (err) {
+                            console.warn(`Failed to sanitize key "${key}":`, err.message);
                         }
                     }
                     return sanitized;
                 };
-
+    
                 this.userCode.sandbox = sanitizeData(this.userCode.sandbox);
-
-                script.runInContext(context, { timeout: 10 });
+    
+                script.runInContext(context, { timeout: 50 }); // Increased timeout to 50ms
             } catch (err) {
                 console.error('Error running script:', err);
             } finally {
@@ -330,12 +378,12 @@ class Tower {
 
         this.lastShotTime = currentTime;
         this.shootLocation = { x: enemyInstance.x, y: enemyInstance.y };
-        if (enemyInstance.health <= this.damage) {
+        if (enemyInstance.health <= this.effectiveStats.damage) {
             this.damageCount += enemyInstance.health;
         } else {
-            this.damageCount += this.damage;
+            this.damageCount += this.effectiveStats.damage;
         }
-        enemyInstance.health -= this.damage;
+        enemyInstance.health -= this.effectiveStats.damage;
         if (enemyInstance.health <= 0) {
             users[this.userIndex].money += enemyInstance.maxHealth;
             const index = users[this.userIndex].enemies.indexOf(enemyInstance);
@@ -351,15 +399,17 @@ class Tower {
 
 // Statuses
 class Status {
-    constructor(type, duration, effect) {
+    constructor(type, duration, effect, strength = 1) {
         this.type = type; // e.g., 'slow', 'boost', 'poison'
         this.duration = duration; // Duration in ticks
         this.effect = effect; // Function to apply the effect
+        this.strength = strength; // Strength of the effect
     }
 
     apply(target) {
+        // Apply the effect to the target's effective stats
         if (this.effect) {
-            this.effect(target); // Apply the effect to the target (tower or enemy)
+            this.effect(target.effectiveStats, this.strength);
         }
     }
 
@@ -371,6 +421,28 @@ class Status {
         return this.duration <= 0; // Check if the status has expired
     }
 }
+
+const slowStatus = new Status(
+    'slow',
+    100, // Default duration in ticks
+    (effectiveStats, strength) => {
+        effectiveStats.speed *= (0.5 / strength);
+    }
+);
+const boostStatus = new Status(
+    'boost',
+    100, // Default duration in ticks
+    (effectiveStats, strength) => {
+        effectiveStats.speed *= strength / 0.5;
+    }
+);
+const poisonStatus = new Status(
+    'poison',
+    100, // Default duration in ticks
+    (effectiveStats, strength) => {
+        effectiveStats.health -= 1 * strength;
+    }
+);
 
 //   GGGGGGG     RRRRRRRRR    IIIIIIIIII   DDDDDDDDD
 //  GGG   GGG    RRR    RRR      III       DDD    DDD 
@@ -465,7 +537,7 @@ function connection(socket, io) {
             shoot: (enemy) => {
                 users[userIndex].towers[tower].shoot(enemy, ticks);
             },
-            towerCanShoot: () => users[userIndex].towers[tower].towerCanShoot()
+            canShoot: () => users[userIndex].towers[tower].towerCanShoot()
         };
 
         const prohibitedStatements = [
@@ -662,18 +734,12 @@ function connection(socket, io) {
                 require: undefined,
                 child_process: undefined,
             };
-            Object.freeze(Object.prototype);
 
-            Object.defineProperty(Function.prototype, 'constructor', {
-                value: undefined,
-                writable: false,
-                configurable: false,
-            });
             console.log('Normalized Program:', normalizedProgram);
-            let script = new vm.Script(program);
-            let context = vm.createContext(sandbox);
-            script.runInContext(context, { timeout: 250 });
-            // users[userIndex].towers[tower].userCode = { program: program, sandbox: sandbox };
+            // let script = new vm.Script(program);
+            // let context = vm.createContext(sandbox);
+            // script.runInContext(context, { timeout: 250 });
+            users[userIndex].towers[tower].userCode = { program: program, sandbox: sandbox };
             console.log('Program executed successfully.', program);
         } catch (error) {
             if (error.message.includes('Script execution timed out')) {
@@ -740,6 +806,7 @@ function connection(socket, io) {
         users[userIndex].sectionQueue = []
         users[userIndex].health = 100
         users[userIndex].money = 0
+        users[userIndex].currentWave = -1
     })
 
     socket.on('spawnEnemies', (enemyType, amount, spawnInterval, wait) => {
@@ -763,7 +830,7 @@ let gameLoop = setInterval(() => {
                 // Handles the movement and status updates of each enemy
                 user.enemies.forEach((enemy) => {
                     // enemy.updateStatuses(); // Update enemy statuses
-                    enemy.move(); // Move the enemy
+                    enemy.move(); // Move the enemy    
                 });
 
                 // Handles the shooting and status updates of each tower

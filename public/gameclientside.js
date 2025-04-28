@@ -11,6 +11,13 @@ var towerShop = document.getElementById("gameMenu");
 var towerList = [];
 let previewTower = null; // To store the current preview tower position
 
+// Load the health icon image
+const healthIcon = new Image();
+healthIcon.src = 'images/userInterfaceImages/lives.gif';
+healthIcon.onload = () => {
+    healthIcon.loaded = true;
+}
+
 socket.emit('getTowerList');
 socket.on('towerList', (data) => {
     getShopItems(data);
@@ -255,8 +262,13 @@ function drawGame(grid, rows, cols, enemies, towers, baseHealth, money, wave) {
     ctx.font = `${64 * ratio}px Arial`; // Scale font size using the canvas ratio
     ctx.textAlign = 'left';
 
-    // Display base health
-    ctx.fillText(`Health: ${baseHealth}`, 10, 20);
+    // Display the health icon
+    if (!healthIcon.loaded) {
+        ctx.drawImage(healthIcon, 10, 10, 50, 50);
+    }
+    // Display the base health value next to the image
+    ctx.fillText(`${baseHealth}`, 40, 25); // Adjust the position to align with the image
+
 
     // Display money
     ctx.fillText(`Bitpogs: ${money}`, 80, 20);

@@ -279,15 +279,32 @@ function drawGame(grid, rows, cols, enemies, towers, baseHealth, money, wave) {
     // Redraw the grid
     drawGrid(grid, rows, cols);
 
-    // Draw all enemies
-    if (enemies && Array.isArray(enemies)) {
-        enemies.forEach(drawEnemy);
+    if (selectedTower != null) {
+        const range = selectedTower.range * spacing; // Calculate the range in pixels
+        ctx.beginPath();
+        ctx.arc(
+            selectedTower.x * spacing + spacing / 2,
+            selectedTower.y * spacing + spacing / 2,
+            range,
+            0,
+            2 * Math.PI
+        );
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+        ctx.fill();
+        ctx.strokeStyle = 'black';
+        ctx.stroke();
     }
 
     // Draw all towers
     if (towers && Array.isArray(towers)) {
         towers.forEach(drawTower);
     }
+
+    // Draw all enemies
+    if (enemies && Array.isArray(enemies)) {
+        enemies.forEach(drawEnemy);
+    }
+
 
     // Draw the preview tower
     drawPreviewTower();
@@ -304,7 +321,7 @@ function drawGame(grid, rows, cols, enemies, towers, baseHealth, money, wave) {
     ctx.fillText(`Bitpogs: ${money}`, 80, 20);
 
     // Display wave
-    const waveLength = (parseInt(wave)+1).toString().length;
+    const waveLength = (parseInt(wave) + 1).toString().length;
     ctx.fillText(`Wave: ${parseInt(wave) + 1} / 10`, 930 - (waveLength * 10), 20);
 }
 
@@ -331,6 +348,24 @@ function clearProgram() {
 //     const programBox = document.getElementById('programBox');
 //     programBox.value = selectedTower.userCode;
 // }
+
+function chooseUpgradePath(towerIndex, path) {
+    socket.emit('chooseUpgradePath', { towerIndex, path });
+}
+
+function upgradeTower(towerIndex) {
+    socket.emit('upgradeTower', towerIndex);
+}
+
+function sellTower() {
+    console.log(selectedTower.index);
+    
+    socket.emit('sellTower', selectedTower.index);
+    selectedTower = null;
+    const towerMenu = document.getElementById('towerMenu');
+    towerMenu.style.transition = 'transform 0.3s ease-in-out';
+    towerMenu.style.transform = 'translate(-100%, 0)';
+}
 
 function sendWave() {
     socket.emit('sendWave');
@@ -359,11 +394,15 @@ socket.on('gameData', (data) => {
         if (gameOver) {
             ctx.clearRect(0, 0, gameBoard.width, gameBoard.height);
             drawGrid(currentGrid, currentRows, currentCols);
-            currentEnemies.forEach(enemy => {
-                drawEnemy(enemy);
-            });
+            selectedTower = null;
+            const towerMenu = document.getElementById('towerMenu');
+            towerMenu.style.transition = 'transform 0.3s ease-in-out';
+            towerMenu.style.transform = 'translate(-100%, 0)';
             currentTowers.forEach(tower => {
                 drawTower(tower);
+            });
+            currentEnemies.forEach(enemy => {
+                drawEnemy(enemy);
             });
             ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
             ctx.fillRect(0, 0, gameBoard.width, gameBoard.height);
@@ -372,22 +411,81 @@ socket.on('gameData', (data) => {
     }
 });
 
+socket.on('updateTowerMenu', (data) => {
+    
+})
+
 socket.on('towerSelected', (data) => {
-    let towerMenu = document.getElementById('towerMenu');
-    let programMenu = document.getElementById('programBox');
-    let towerRange = document.getElementById('towerRange');
+    var towerMenu = document.getElementById('towerMenu');
+var programMenu = document.getElementById('programBox');
+
+if (data != null) {
     if (selectedTower == null) {
-        towerMenu.style.transition = 'transform 0.3s ease-in-out';
-        towerMenu.style.transform = 'translate(0, 0)';
         selectedTower = data;
+
+        // Clear only the dynamic parts of the tower menu, leaving the programMenu intact
+        const dynamicMenu = document.getElementById('dynamicMenu');
+        if (dynamicMenu) {
+            dynamicMenu.remove(); // Remove the old dynamic content
+        }
+
+        // Create a container for dynamic content
+        const newDynamicMenu = document.createElement('div');
+        newDynamicMenu.id = 'dynamicMenu';
+
+        // Populate the tower menu with upgrade options
+        const towerInfo = document.createElement('div');
+        towerInfo.innerHTML = `
+            <h3>${selectedTower.name} Tower</h3>
+            <p>Range: ${selectedTower.range}</p>
+            <p>Damage: ${selectedTower.damage}</p>
+            <p>Fire Rate: ${selectedTower.fireRate}</p>
+            <p>Upgrade Level: ${selectedTower.upgradeLevel}</p>
+        `;
+        newDynamicMenu.appendChild(towerInfo);
+
+        // Add buttons for choosing upgrade paths if no path is chosen
+        if (selectedTower.upgradePath === null) {
+            const path1Button = document.createElement('button');
+            path1Button.innerText = 'Choose Path 1';
+            path1Button.onclick = () => chooseUpgradePath(selectedTower.index, 'path1');
+            newDynamicMenu.appendChild(path1Button);
+
+            const path2Button = document.createElement('button');
+            path2Button.innerText = 'Choose Path 2';
+            path2Button.onclick = () => chooseUpgradePath(selectedTower.index, 'path2');
+            newDynamicMenu.appendChild(path2Button);
+        } else {
+            // Add an upgrade button if a path is already chosen
+            const upgradeButton = document.createElement('button');
+            upgradeButton.innerText = `Upgrade (${selectedTower.price} Bitpogs)`;
+            upgradeButton.onclick = () => upgradeTower(selectedTower.index);
+            newDynamicMenu.appendChild(upgradeButton);
+        }
+
+        // Append the dynamic menu to the tower menu
+        towerMenu.appendChild(newDynamicMenu);
+
+        // Update the programMenu value
         if (selectedTower.userCode != null) {
             programMenu.value = selectedTower.userCode.program;
+        } else {
+            programMenu.value = '';
         }
+
+        // Show the tower menu
+        towerMenu.style.transition = 'transform 0.3s ease-in-out';
+        towerMenu.style.transform = 'translate(0, 0)';
     } else {
         selectedTower = null;
         towerMenu.style.transition = 'transform 0.3s ease-in-out';
         towerMenu.style.transform = 'translate(-100%, 0)';
     }
+} else {
+    selectedTower = null;
+    towerMenu.style.transition = 'transform 0.3s ease-out';
+    towerMenu.style.transform = 'translate(-100%, 0)';
+}
 });
 
 socket.on('codeWillNotBeExecuted', (information) => {

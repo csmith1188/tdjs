@@ -72,6 +72,7 @@ class Enemy {
         this.healthBorder = options.healthBorder || false;
         this.distanceFromStart = 0;
         this.statuses = []; // Array to store active statuses
+        this.size = 32;
 
         // Initialize original stats and effective stats
         this.updateStats();
@@ -87,12 +88,45 @@ class Enemy {
     }
 
     addStatus(status, customDuration = null, strength = 1) {
-        // Clone the status before adding it
+        // Check if the status already exists
+        const existingStatusIndex = this.statuses.findIndex(s => s.type === status.type);
+
+        if (existingStatusIndex !== -1) {
+            const existingStatus = this.statuses[existingStatusIndex];
+
+            // Compare strengths
+            if (strength > existingStatus.strength) {
+
+                // Replace the existing status with the new one
+                this.statuses[existingStatusIndex] = new Status(
+                    status.type,
+                    customDuration !== null ? customDuration : status.duration,
+                    status.effect,
+                    strength
+                );
+            } else if (strength === existingStatus.strength) {
+                // Compare durations if strengths are equal
+                const newDuration = customDuration !== null ? customDuration : status.duration;
+                if (newDuration > existingStatus.duration) {
+                    // Replace the existing status with the new one
+                    this.statuses[existingStatusIndex] = new Status(
+                        status.type,
+                        newDuration,
+                        status.effect,
+                        strength
+                    );
+                }
+            }
+            // If the new status is weaker or has a shorter duration, discard it
+            return;
+        }
+
+        // If the status doesn't exist, add it
         const clonedStatus = new Status(
             status.type,
-            customDuration !== null ? customDuration : status.duration, // Use custom duration if provided
+            customDuration !== null ? customDuration : status.duration,
             status.effect,
-            strength // Pass the strength to the cloned status
+            strength
         );
         this.statuses.push(clonedStatus);
     }
@@ -118,28 +152,24 @@ class Enemy {
                 this.maxHealth = this.health;
                 this.speed = 40;
                 this.color = 'white';
-                this.size = 45;
                 break;
             case 'fast':
                 this.health = 5;
                 this.maxHealth = 5;
                 this.speed = 60;
                 this.color = 'dodgerblue';
-                this.size = 45;
                 break;
             case 'slow':
                 this.health = 20;
                 this.maxHealth = 20;
                 this.speed = 30;
                 this.color = 'green';
-                this.size = 45;
                 break;
             case 'boss':
                 this.health = 100;
                 this.maxHealth = 100;
                 this.speed = 10;
                 this.color = 'white';
-                this.size = 55;
                 break;
         }
 
@@ -155,7 +185,6 @@ class Enemy {
 
     updatePosition() {
         const enemyIndex = users[this.userIndex].enemies.findIndex(e => e === this);
-        this.distanceFromStart++;
         if (enemyIndex !== -1) {
             users[this.userIndex].enemies[enemyIndex] = this;
         }
@@ -182,6 +211,7 @@ class Enemy {
         }
 
         // Move towards the target cell using effective speed
+        this.distanceFromStart += this.effectiveStats.speed / 1000;
         if (this.x < this.nextX) {
             this.x += this.effectiveStats.speed / 1000;
             if (this.x > this.nextX) {
@@ -219,9 +249,11 @@ class Tower {
         this.y = y;
         this.index = users[userIndex].towers.length;
         this.userIndex = userIndex;
-        this.lastShotTime = 0;
         this.userCode = null;
         this.statuses = []; // Array to store active statuses
+        this.inflictStatuses = [];
+        this.upgradePath = null; // No path chosen initially
+        this.upgradeLevel = 0; // Start at level 0
 
         // Initialize original stats and effective stats
         this.updateStats(presetTower);
@@ -234,6 +266,118 @@ class Tower {
         this.shootLocation = null;
         this.damageCount = 0;
         this.targetingType = 'first';
+    }
+
+    updateStats(presetTower) {
+        const upgradePaths = {
+            basic: {
+            path1: [
+                { name: 'Extended Range', range: 4, damage: 2, fireRate: 2, price: 10 },
+                { name: 'Improved Damage', range: 5, damage: 3, fireRate: 2.5, price: 20 },
+                { name: 'Advanced Targeting', range: 6, damage: 4, fireRate: 3, price: 30 }
+            ],
+            path2: [
+                { name: 'High Impact', range: 3, damage: 5, fireRate: 1.5, price: 15 },
+                { name: 'Enhanced Power', range: 4, damage: 7, fireRate: 2, price: 25 },
+                { name: 'Devastating Force', range: 5, damage: 10, fireRate: 2.5, price: 40 }
+            ]
+            },
+            sniper: {
+            path1: [
+                { name: 'Precision Scope', range: 8, damage: 10, fireRate: 0.5, price: 20 },
+                { name: 'Long Range Shot', range: 9, damage: 15, fireRate: 0.6, price: 40 },
+                { name: 'Deadly Accuracy', range: 10, damage: 20, fireRate: 0.7, price: 60 }
+            ],
+            path2: [
+                { name: 'Rapid Fire', range: 7, damage: 12, fireRate: 0.8, price: 25 },
+                { name: 'Powerful Strike', range: 8, damage: 18, fireRate: 1, price: 50 },
+                { name: 'Ultimate Sniper', range: 9, damage: 25, fireRate: 1.2, price: 75 }
+            ]
+            }
+        };
+
+        if (this.upgradePath) {
+            const stats = upgradePaths[presetTower][this.upgradePath][this.upgradeLevel];
+            this.range = stats.range;
+            this.damage = stats.damage;
+            this.fireRate = stats.fireRate;
+            this.price = stats.price;
+        } else {
+            // Default stats for the base tower
+            switch (presetTower) {
+                case 'basic':
+                    this.size = 10;
+                    this.color = 'lightblue';
+                    this.range = 4;
+                    this.damage = 2;
+                    this.fireRate = 2;
+                    this.name = 'Basic';
+                    this.price = 10;
+                    break;
+                case 'sniper':
+                    this.size = 10;
+                    this.color = 'lightcoral';
+                    this.range = 8;
+                    this.damage = 10;
+                    this.fireRate = 0.5;
+                    this.name = 'Sniper';
+                    this.price = 20;
+                    break;
+                case 'machineGun':
+                    this.size = 10;
+                    this.color = 'lightgreen';
+                    this.range = 3;
+                    this.damage = 1;
+                    this.fireRate = 10;
+                    this.name = 'MachineGun';
+                    this.price = 15;
+                    break;
+                case 'slowTower':
+                    this.size = 10;
+                    this.color = 'lightyellow';
+                    this.range = 4;
+                    this.damage = 0;
+                    this.fireRate = 2;
+                    this.name = 'SlowTower';
+                    this.inflictStatuses.push(slowStatus);
+                    this.price = 15;
+                    break;
+            }
+            this.shootLocation = null;
+            this.damageCount = 0;
+            this.lastShotTime = 0;
+        }
+    }
+
+    chooseUpgradePath(path) {
+        if (this.upgradePath === null) {
+            this.upgradePath = path;
+            console.log(`Upgrade path ${path} chosen.`);
+        } else {
+            console.log('Upgrade path already chosen and cannot be changed.');
+        }
+    }
+
+    upgrade() {
+        const maxUpgradeLevel = 2; // Define the maximum upgrade level for each path
+        if (this.upgradePath === null) {
+            console.log('No upgrade path chosen. Please choose a path first.');
+            return;
+        }
+
+        if (this.upgradeLevel < maxUpgradeLevel) {
+            const upgradeCost = this.price;
+            if (users[this.userIndex].money >= upgradeCost) {
+                users[this.userIndex].money -= upgradeCost;
+                this.upgradeLevel++;
+                this.updateStats(this.name.toLowerCase());
+                console.log(`Tower upgraded to level ${this.upgradeLevel} on path ${this.upgradePath}`);
+            } else {
+                console.log('Not enough money to upgrade.');
+            }
+        } else {
+            console.log('Tower is already at max level for this path.');
+        }
     }
 
     addStatus(status, customDuration = null, strength = 1) {
@@ -260,87 +404,62 @@ class Tower {
         });
     }
 
-    updateStats(presetTower) {
-        switch (presetTower) {
-            case 'basic':
-                this.size = 10;
-                this.color = 'lightblue';
-                this.range = 4;
-                this.damage = 2;
-                this.fireRate = 2;
-                this.name = 'Basic';
-                this.price = 10;
-                break;
-            case 'sniper':
-                this.size = 10;
-                this.color = 'lightcoral';
-                this.range = 8;
-                this.damage = 10;
-                this.fireRate = 0.5;
-                this.name = 'Sniper';
-                this.price = 20;
-                break;
-            case 'machineGun':
-                this.size = 10;
-                this.color = 'lightgreen';
-                this.range = 3;
-                this.damage = 1;
-                this.fireRate = 10;
-                this.name = 'MachineGun';
-                this.price = 15;
-                break;
-        }
-        this.shootLocation = null;
-        this.damageCount = 0;
-        this.targetingType = 'first';
-    }
-
     findTarget(ticks) {
         this.updateStatuses(); // Update statuses before finding a target
-    
+
         this.currentTime = ticks;
-    
+
         this.getEnemies = () => {
             return users[this.userIndex].enemies;
         };
-    
-        this.getDistance = (enemy) => {
-            return Math.sqrt(Math.pow(enemy.x - this.x, 2) + Math.pow(enemy.y - this.y, 2));
+
+        this.inRange = (enemy) => {
+            const distance = Math.sqrt(Math.pow(enemy.x - this.x, 2) + Math.pow(enemy.y - this.y, 2));
+            if (distance <= this.effectiveStats.range) {
+                return true;
+            } else {
+                return false;
+            }
         };
-    
-        this.getDistanceFromStart = (enemy) => {
-            return enemy.distanceFromStart;
+
+        this.findFirst = () => {
+            const enemiesInRange = this.getEnemies().filter(enemy => this.inRange(enemy));
+            if (enemiesInRange.length === 0) return null;
+
+            return enemiesInRange.reduce((farthest, current) => {
+            return current.distanceFromStart > farthest.distanceFromStart ? current : farthest;
+            }, enemiesInRange[0]);
         };
-    
-        this.towerCanShoot = () => {
+
+        this.canShoot = () => {
             if (this.currentTime - this.lastShotTime >= (frameRate / this.effectiveStats.fireRate)) {
                 return true;
             } else {
                 return false;
             }
         };
-    
+
         if (this.userCode && !this.scriptIsRunning) {
             this.scriptIsRunning = true;
-    
+
             let script = new vm.Script(this.userCode.program);
             let context = vm.createContext(this.userCode.sandbox);
-    
+
             try {
                 const sanitizeData = (data, seen = new WeakSet()) => {
                     if (typeof data !== 'object' || data === null) {
                         return data;
                     }
-    
+
                     if (seen.has(data)) {
                         return; // Prevent infinite recursion
                     }
                     seen.add(data);
-    
+
                     if (Array.isArray(data)) {
                         return data.map(item => sanitizeData(item, seen));
                     }
-    
+
                     const sanitized = {};
                     for (const key in data) {
                         try {
@@ -355,9 +474,9 @@ class Tower {
                     }
                     return sanitized;
                 };
-    
+
                 this.userCode.sandbox = sanitizeData(this.userCode.sandbox);
-    
+
                 script.runInContext(context, { timeout: 50 }); // Increased timeout to 50ms
             } catch (err) {
                 console.error('Error running script:', err);
@@ -370,7 +489,7 @@ class Tower {
 
     shoot(target, currentTime) {
         const enemyInstance = target;
-
+        
         if (!enemyInstance) {
             this.shootLocation = null;
             return;
@@ -378,6 +497,9 @@ class Tower {
 
         this.lastShotTime = currentTime;
         this.shootLocation = { x: enemyInstance.x, y: enemyInstance.y };
+        this.inflictStatuses.forEach(status => {
+            enemyInstance.addStatus(status);
+        });
         if (enemyInstance.health <= this.effectiveStats.damage) {
             this.damageCount += enemyInstance.health;
         } else {
@@ -527,17 +649,24 @@ function connection(socket, io) {
         let y = towerSelect.y
         if (users[userIndex].towers.find(tower => tower.x === x && tower.y === y)) {
             socket.emit('towerSelected', users[userIndex].towers.find(tower => tower.x === x && tower.y === y));
+        } else {
+            socket.emit('towerSelected', null);
         }
     })
 
     socket.on('userProgram', (program, tower) => {
         const allowedFunctions = {
             getEnemies: () => users[userIndex].towers[tower].getEnemies(),
-            getDistance: (enemy) => users[userIndex].towers[tower].getDistance(enemy),
-            shoot: (enemy) => {
-                users[userIndex].towers[tower].shoot(enemy, ticks);
+            inRange: (enemy) => { 
+                return users[userIndex].towers[tower].inRange(enemy);
+             },
+            findFirst: () =>  { return users[userIndex].towers[tower].findFirst(); },
+            canShoot: () => {
+                return users[userIndex].towers[tower].canShoot();
             },
-            canShoot: () => users[userIndex].towers[tower].towerCanShoot()
+            shoot: (target) => {
+                users[userIndex].towers[tower].shoot(target, ticks);
+            }
         };
 
         const prohibitedStatements = [
@@ -753,18 +882,12 @@ function connection(socket, io) {
     });
 
     socket.on('getTowerList', () => {
-        const towerTypes = [];
-        const towerSwitch = Tower.toString().match(/switch\s*\(presetTower\)\s*{([\s\S]*?)}/);
-        if (towerSwitch && towerSwitch[1]) {
-            const cases = towerSwitch[1].match(/case\s*'([^']+)'[\s\S]*?this\.price\s*=\s*(\d+)/g);
-            if (cases) {
-                cases.forEach(caseStatement => {
-                    const towerName = caseStatement.match(/case\s*'([^']+)'/)[1];
-                    const towerPrice = parseInt(caseStatement.match(/this\.price\s*=\s*(\d+)/)[1], 10);
-                    towerTypes.push({ name: towerName, price: towerPrice });
-                });
-            }
-        }
+        const towerTypes = [
+            { name: 'basic', price: 10 },
+            { name: 'sniper', price: 20 },
+            { name: 'machineGun', price: 15 },
+            { name: 'slowTower', price: 15 }
+        ];
         socket.emit('towerList', towerTypes);
     });
 
@@ -783,6 +906,33 @@ function connection(socket, io) {
             }
         }
     })
+
+    socket.on('chooseUpgradePath', ({ towerIndex, path }) => {
+        const tower = users[userIndex].towers[towerIndex];
+        if (tower) {
+            tower.chooseUpgradePath(path);
+            socket.emit('upgradePathChosen', { towerIndex, path });
+        }
+    });
+    
+    socket.on('upgradeTower', (towerIndex) => {
+        const tower = users[userIndex].towers[towerIndex];
+        if (tower) {
+            tower.upgrade();
+            socket.emit('towerUpgraded', { towerIndex, upgradeLevel: tower.upgradeLevel });
+        } 
+    });
+
+    socket.on('sellTower', (towerIndex) => {
+        const tower = users[userIndex].towers[towerIndex];
+        if (tower) {
+            users[userIndex].money += tower.price;
+            users[userIndex].towers.splice(towerIndex, 1);
+        }
+        users[userIndex].towers.forEach((tower, index) => {
+            tower.index = index;
+        });
+    });
 
     socket.on('startWave', waveIndex => {
         if (waveIndex || waveIndex === 0) {

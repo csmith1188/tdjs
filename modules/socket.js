@@ -65,6 +65,10 @@ waves = [
 // EEEEE   NN  NN   EEEEE   MM   MM     YYY
 class Enemy {
     constructor(enemyType, userIndex, options) {
+        this.initialize(enemyType, userIndex, options);
+    }
+
+    initialize(enemyType, userIndex, options) {
         this.x = 0;
         this.y = 2;
         this.userIndex = userIndex;
@@ -81,10 +85,26 @@ class Enemy {
             armor: 0
         };
 
-        users[this.userIndex].enemies.push(this);
-        this.updatePosition(this.userIndex);
+        if (userIndex !== null) {
+            users[this.userIndex].enemies.push(this);
+        }
+        this.updatePosition();
+    }
 
-        // this.addStatus(slowStatus, 600, 10);
+    reset() {
+        // Reset all properties to default values
+        this.x = 0;
+        this.y = 2;
+        this.userIndex = null;
+        this.enemyType = null;
+        this.healthBorder = false;
+        this.distanceFromStart = 0;
+        this.statuses = [];
+        this.size = 32;
+        this.effectiveStats = {
+            speed: 0,
+            armor: 0
+        };
     }
 
     addStatus(status, customDuration = null, strength = 1) {
@@ -192,48 +212,73 @@ class Enemy {
 
     move() {
         this.updateStatuses(); // Update statuses before moving
-
-        const currentPoint = pathPoint.find(point => point.x === this.x && point.y === this.y);
-        if (currentPoint) {
-            const currentIndex = pathPoint.indexOf(currentPoint);
+    
+        if (!this.nextX || !this.nextY) {
+            const currentIndex = Math.floor(this.distanceFromStart);
             if (currentIndex < pathPoint.length - 1) {
-                this.nextX = pathPoint[currentIndex + 1].x;
-                this.nextY = pathPoint[currentIndex + 1].y;
+                const nextPoint = pathPoint[currentIndex + 1];
+                this.nextX = nextPoint.x;
+                this.nextY = nextPoint.y;
             } else {
-                users[this.userIndex].health -= this.effectiveStats.health;
-                users[this.userIndex].enemies.splice(users[this.userIndex].enemies.indexOf(this), 1);
-                if (users[this.userIndex].health <= 0) {
-                    users[this.userIndex].health = 0;
-                    users[this.userIndex].gameOver = true;
-                    users[this.userIndex].gameIsRunning = false;
+                const user = users[this.userIndex];
+                user.health -= this.effectiveStats.health;
+                user.enemies.splice(user.enemies.indexOf(this), 1);
+                if (user.health <= 0) {
+                    user.health = 0;
+                    user.gameOver = true;
+                    user.gameIsRunning = false;
                 }
+                return;
             }
         }
-
-        // Move towards the target cell using effective speed
-        this.distanceFromStart += this.effectiveStats.speed / 1000;
-        if (this.x < this.nextX) {
-            this.x += this.effectiveStats.speed / 1000;
-            if (this.x > this.nextX) {
-                this.x = this.nextX;
-            }
-        } else if (this.x > this.nextX) {
-            this.x -= this.effectiveStats.speed / 1000;
-            if (this.x < this.nextX) {
-                this.x = this.nextX;
-            }
-        } else if (this.y < this.nextY) {
-            this.y += this.effectiveStats.speed / 1000;
-            if (this.y > this.nextY) {
-                this.y = this.nextY;
-            }
-        } else if (this.y > this.nextY) {
-            this.y -= this.effectiveStats.speed / 1000;
-            if (this.y < this.nextY) {
-                this.y = this.nextY;
-            }
+    
+        const speed = this.effectiveStats.speed / 1000;
+        const dx = this.nextX - this.x;
+        const dy = this.nextY - this.y;
+    
+        if (dx !== 0) {
+            this.x += Math.sign(dx) * speed;
+            if (Math.abs(dx) < speed) this.x = this.nextX;
+        } else if (dy !== 0) {
+            this.y += Math.sign(dy) * speed;
+            if (Math.abs(dy) < speed) this.y = this.nextY;
         }
+    
+        this.distanceFromStart += speed;
         this.updatePosition();
+    }
+}
+
+class EnemyPool {
+    constructor(size) {
+        this.pool = [];
+        this.activeEnemies = new Set(); // Track active enemies for debugging or reuse
+
+        for (let i = 0; i < size; i++) {
+            this.pool.push(new Enemy(null, null, {})); // Pre-allocate Enemy objects
+        }
+    }
+
+    getEnemy(enemyType, userIndex, options) {
+        if (this.pool.length > 0) {
+            const enemy = this.pool.pop();
+            enemy.initialize(enemyType, userIndex, options); // Reinitialize the enemy
+            this.activeEnemies.add(enemy); // Track the active enemy
+            return enemy;
+        } else {
+            console.warn('Enemy pool is empty! Consider increasing the pool size.');
+            return null; // Return null instead of creating a new enemy
+        }
+    }
+
+    releaseEnemy(enemy) {
+        if (this.activeEnemies.has(enemy)) {
+            this.activeEnemies.delete(enemy); // Remove from active enemies
+            enemy.reset(); // Reset the enemy to its default state
+            this.pool.push(enemy); // Return the enemy to the pool
+        } else {
+            console.warn('Attempted to release an enemy that is not active.');
+        }
     }
 }
 
@@ -271,28 +316,28 @@ class Tower {
     updateStats(presetTower) {
         const upgradePaths = {
             basic: {
-            path1: [
-                { name: 'Extended Range', range: 4, damage: 2, fireRate: 2, price: 10 },
-                { name: 'Improved Damage', range: 5, damage: 3, fireRate: 2.5, price: 20 },
-                { name: 'Advanced Targeting', range: 6, damage: 4, fireRate: 3, price: 30 }
-            ],
-            path2: [
-                { name: 'High Impact', range: 3, damage: 5, fireRate: 1.5, price: 15 },
-                { name: 'Enhanced Power', range: 4, damage: 7, fireRate: 2, price: 25 },
-                { name: 'Devastating Force', range: 5, damage: 10, fireRate: 2.5, price: 40 }
-            ]
+                path1: [
+                    { name: 'Extended Range', range: 4, damage: 2, fireRate: 2, price: 10 },
+                    { name: 'Improved Damage', range: 5, damage: 3, fireRate: 2.5, price: 20 },
+                    { name: 'Advanced Targeting', range: 6, damage: 4, fireRate: 3, price: 30 }
+                ],
+                path2: [
+                    { name: 'High Impact', range: 3, damage: 5, fireRate: 1.5, price: 15 },
+                    { name: 'Enhanced Power', range: 4, damage: 7, fireRate: 2, price: 25 },
+                    { name: 'Devastating Force', range: 5, damage: 10, fireRate: 2.5, price: 40 }
+                ]
             },
             sniper: {
-            path1: [
-                { name: 'Precision Scope', range: 8, damage: 10, fireRate: 0.5, price: 20 },
-                { name: 'Long Range Shot', range: 9, damage: 15, fireRate: 0.6, price: 40 },
-                { name: 'Deadly Accuracy', range: 10, damage: 20, fireRate: 0.7, price: 60 }
-            ],
-            path2: [
-                { name: 'Rapid Fire', range: 7, damage: 12, fireRate: 0.8, price: 25 },
-                { name: 'Powerful Strike', range: 8, damage: 18, fireRate: 1, price: 50 },
-                { name: 'Ultimate Sniper', range: 9, damage: 25, fireRate: 1.2, price: 75 }
-            ]
+                path1: [
+                    { name: 'Precision Scope', range: 8, damage: 10, fireRate: 0.5, price: 20 },
+                    { name: 'Long Range Shot', range: 9, damage: 15, fireRate: 0.6, price: 40 },
+                    { name: 'Deadly Accuracy', range: 10, damage: 20, fireRate: 0.7, price: 60 }
+                ],
+                path2: [
+                    { name: 'Rapid Fire', range: 7, damage: 12, fireRate: 0.8, price: 25 },
+                    { name: 'Powerful Strike', range: 8, damage: 18, fireRate: 1, price: 50 },
+                    { name: 'Ultimate Sniper', range: 9, damage: 25, fireRate: 1.2, price: 75 }
+                ]
             }
         };
 
@@ -413,30 +458,34 @@ class Tower {
             return users[this.userIndex].enemies;
         };
 
-        this.inRange = (enemy) => {
-            const distance = Math.sqrt(Math.pow(enemy.x - this.x, 2) + Math.pow(enemy.y - this.y, 2));
-            if (distance <= this.effectiveStats.range) {
-                return true;
-            } else {
-                return false;
+        this.findFirst = (enemiesInRange) => {
+            let farthestEnemy = null;
+            let maxDistance = -Infinity;
+
+            for (const enemy of enemiesInRange) {
+                const distanceFromStart = enemy.distanceFromStart;
+                if (distanceFromStart > maxDistance) {
+                    maxDistance = distanceFromStart;
+                    farthestEnemy = enemy;
+                }
             }
+
+            return farthestEnemy;
         };
 
-        this.findFirst = () => {
-            const enemiesInRange = this.getEnemies().filter(enemy => this.inRange(enemy));
-            if (enemiesInRange.length === 0) return null;
-
-            return enemiesInRange.reduce((farthest, current) => {
-            return current.distanceFromStart > farthest.distanceFromStart ? current : farthest;
-            }, enemiesInRange[0]);
+        this.getEnemiesInRange = () => {
+            const enemies = this.getEnemies();
+            const enemiesInRange = [];
+            for (const enemy of enemies) {
+                if (this.inRange(enemy)) {
+                    enemiesInRange.push(enemy);
+                }
+            }
+            return enemiesInRange;
         };
 
         this.canShoot = () => {
-            if (this.currentTime - this.lastShotTime >= (frameRate / this.effectiveStats.fireRate)) {
-                return true;
-            } else {
-                return false;
-            }
+            return this.currentTime - this.lastShotTime >= (frameRate / this.effectiveStats.fireRate);
         };
 
         if (this.userCode && !this.scriptIsRunning) {
@@ -489,7 +538,7 @@ class Tower {
 
     shoot(target, currentTime) {
         const enemyInstance = target;
-        
+
         if (!enemyInstance) {
             this.shootLocation = null;
             return;
@@ -506,13 +555,6 @@ class Tower {
             this.damageCount += this.effectiveStats.damage;
         }
         enemyInstance.health -= this.effectiveStats.damage;
-        if (enemyInstance.health <= 0) {
-            users[this.userIndex].money += enemyInstance.maxHealth;
-            const index = users[this.userIndex].enemies.indexOf(enemyInstance);
-            if (index > -1) {
-                users[this.userIndex].enemies.splice(index, 1);
-            }
-        }
         if (enemyInstance.healthBorder) {
             enemyInstance.updateHealthBorder();
         }
@@ -561,9 +603,11 @@ const boostStatus = new Status(
 const poisonStatus = new Status(
     'poison',
     100, // Default duration in ticks
-    (effectiveStats, strength) => {
-        effectiveStats.health -= 1 * strength;
-    }
+    (target, strength) => {
+        // Reduce health directly on the target
+        target.health -= strength;
+    },
+    1 // Default strength
 );
 
 //   GGGGGGG     RRRRRRRRR    IIIIIIIIII   DDDDDDDDD
@@ -654,196 +698,101 @@ function connection(socket, io) {
         }
     })
 
+    const acorn = require('acorn');
+    const { simple: walkSimple } = require('acorn-walk');
+
     socket.on('userProgram', (program, tower) => {
         const allowedFunctions = {
             getEnemies: () => users[userIndex].towers[tower].getEnemies(),
-            inRange: (enemy) => { 
-                return users[userIndex].towers[tower].inRange(enemy);
-             },
-            findFirst: () =>  { return users[userIndex].towers[tower].findFirst(); },
-            canShoot: () => {
-                return users[userIndex].towers[tower].canShoot();
-            },
-            shoot: (target) => {
-                users[userIndex].towers[tower].shoot(target, ticks);
-            }
+            inRange: (enemy) => users[userIndex].towers[tower].inRange(enemy),
+            findFirst: () => users[userIndex].towers[tower].findFirst(),
+            canShoot: () => users[userIndex].towers[tower].canShoot(),
+            shoot: (target) => users[userIndex].towers[tower].shoot(target, ticks),
         };
 
-        const prohibitedStatements = [
-            'fs', 'require', 'this', 'constructor', 'return', 'child_process', 'CharCode',
-            'eval', 'Function', 'global', 'Buffer', 'process', 'vm', 'setTimeout',
-            'setInterval', 'Reflect', 'Proxy', 'console', 'charCodes', 'code', 'Code', 'char', 'func', 'Func', 'function'
+        const prohibitedKeywords = [
+            'String', 'fromCharCode', 'eval', 'Function', 'constructor', 'global', 'process',
+            'Buffer', 'require', 'setTimeout', 'setInterval', 'Reflect', 'Proxy', 'vm',
+            'child_process', 'console', 'this'
         ];
 
         try {
-            const preprocessProgram = (program) => {
-                let resolvedProgram = program.replace(/(['"`])\s*\+\s*\1/g, '');
-
-                let concatenationRegex = /(['"`])([^'"`]+?)\1\s*\+\s*(['"`])([^'"`]+?)\3/g;
-                while (concatenationRegex.test(resolvedProgram)) {
-                    resolvedProgram = resolvedProgram.replace(concatenationRegex, (_, q1, part1, q2, part2) => {
-                        if (q1 === q2) return `${part1}${part2}`;
-                        return _;
-                    });
+            // Check for prohibited keywords
+            for (const keyword of prohibitedKeywords) {
+                if (program.includes(keyword)) {
+                    throw new Error(`Prohibited keyword detected: "${keyword}"`);
                 }
+            }
 
-                resolvedProgram = resolvedProgram.replace(/\\u([\dA-Fa-f]{4})/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
-                resolvedProgram = resolvedProgram.replace(/\\x([\dA-Fa-f]{2})/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
+            // Parse the program into an AST
+            const ast = acorn.parse(program, { ecmaVersion: 2020 });
 
-                // Detect and decode Base64 strings
-                const base64Regex = /Buffer\.from\(['"`]([A-Za-z0-9+/=]+)['"`],\s*['"`]base64['"`]\)\.toString\(\)/g;
-                resolvedProgram = resolvedProgram.replace(base64Regex, (_, encoded) => {
-                    try {
-                        return Buffer.from(encoded, 'base64').toString();
-                    } catch {
-                        return ''; // Ignore invalid Base64 strings
+            // Walk through the AST to detect prohibited patterns
+            walkSimple(ast, {
+                WithStatement(node) {
+                    throw new Error('Prohibited statement: "with" is not allowed.');
+                },
+                WhileStatement(node) {
+                    if (node.test.type === 'Literal' && node.test.value === true) {
+                        throw new Error('Prohibited statement: Infinite loop detected.');
                     }
-                });
-
-                return resolvedProgram;
-            };
-
-            const normalizedProgram = preprocessProgram(program);
-
-            const detectExcessiveConcatenation = (ast) => {
-                let concatenationCount = 0;
-
-                walk.simple(ast, {
-                    AssignmentExpression(node) {
-                        if (
-                            node.operator === '+=' &&
-                            node.left.type === 'Identifier' &&
-                            node.right.type === 'Literal' &&
-                            typeof node.right.value === 'string'
-                        ) {
-                            concatenationCount++;
-                        }
+                },
+                CallExpression(node) {
+                    if (
+                        node.callee.type === 'MemberExpression' &&
+                        node.callee.object.type === 'Identifier' &&
+                        node.callee.object.name === 'String' &&
+                        node.callee.property.type === 'Identifier' &&
+                        node.callee.property.name === 'fromCharCode'
+                    ) {
+                        throw new Error('Prohibited statement: Use of "String.fromCharCode" is not allowed.');
                     }
-                });
-
-                if (concatenationCount > 3) { // Threshold for excessive concatenation
-                    throw new Error('Excessive string concatenation detected');
-                }
-            };
-
-            const detectObfuscation = (program) => {
-                const unicodeEscapeRegex = /\\u[\dA-Fa-f]{4}/g;
-                const hexEscapeRegex = /\\x[\dA-Fa-f]{2}/g;
-
-                if (unicodeEscapeRegex.test(program) || hexEscapeRegex.test(program)) {
-                    throw new Error('Obfuscation detected (escape sequences)');
-                }
-            };
-
-            const detectDynamicExecution = (ast) => {
-                let hasDynamicExecution = false;
-
-                walk.simple(ast, {
-                    MemberExpression(node) {
-                        if (node.computed && node.property.type === 'Identifier') {
-                            hasDynamicExecution = true;
-                        }
-                    },
-                    CallExpression(node) {
-                        if (node.callee.type === 'MemberExpression' && node.callee.computed) {
-                            hasDynamicExecution = true;
-                        }
+                },
+                MemberExpression(node) {
+                    if (
+                        node.object.type === 'Identifier' &&
+                        node.object.name === 'String' &&
+                        node.property.type === 'Identifier' &&
+                        node.property.name === 'fromCharCode'
+                    ) {
+                        throw new Error('Prohibited statement: Use of "String.fromCharCode" is not allowed.');
                     }
-                });
-
-                if (hasDynamicExecution) {
-                    throw new Error('Dynamic execution detected');
-                }
-            };
-
-            const validateProgram = (resolvedProgram, prohibitedStatements) => {
-                const ast = acorn.parse(resolvedProgram, { ecmaVersion: 2020 });
-
-                walk.simple(ast, {
-                    WithStatement(node) {
-                        throw new Error('Prohibited statement: "with" is not allowed.');
-                    },
-                    WhileStatement(node) {
-                        if (node.test.type === 'Literal' && node.test.value === true) {
-                            throw new Error('Prohibited statement: Infinite loop detected.');
-                        }
-                    },
-                    CallExpression(node) {
-                        if (
-                            node.callee.type === 'MemberExpression' &&
-                            node.callee.object.type === 'Identifier' &&
-                            node.callee.object.name === 'String' &&
-                            node.callee.property.type === 'Identifier' &&
-                            node.callee.property.name === 'fromCharCode'
-                        ) {
-                            throw new Error('Prohibited statement: Use of "String.fromCharCode" is not allowed.');
-                        }
-                    },
-                    MemberExpression(node) {
-                        if (
-                            node.object.type === 'Identifier' &&
-                            node.object.name === 'String' &&
-                            node.property.type === 'Identifier' &&
-                            node.property.name === 'fromCharCode'
-                        ) {
-                            throw new Error('Prohibited statement: Use of "String.fromCharCode" is not allowed.');
-                        }
-                    },
-                    BinaryExpression(node) {
-                        if (
-                            node.operator === '+' &&
-                            (node.left.type === 'Literal' && typeof node.left.value === 'string' ||
-                                node.right.type === 'Literal' && typeof node.right.value === 'string')
-                        ) {
-                            throw new Error('Prohibited statement: String concatenation is not allowed.');
-                        }
-                    },
-                    AssignmentExpression(node) {
-                        if (
-                            node.operator === '+=' &&
-                            node.left.type === 'Identifier' &&
-                            node.right.type === 'Literal' &&
-                            typeof node.right.value === 'string'
-                        ) {
-                            throw new Error('Prohibited statement: String concatenation using "+=" is not allowed.');
-                        }
-                    },
-                    TemplateLiteral(node) {
-                        throw new Error('Prohibited statement: Template literals are not allowed.');
-                    },
-                    Identifier(node) {
-                        if (node.name === 'CharCode') {
-                            throw new Error('Prohibited statement: Use of "CharCode" is not allowed.');
-                        }
-                    },
-                    Literal(node) {
-                        if (typeof node.value === 'string') {
-                            throw new Error('Prohibited statement: String literals are not allowed.');
-                        }
+                },
+                BinaryExpression(node) {
+                    if (
+                        node.operator === '+' &&
+                        (node.left.type === 'Literal' && typeof node.left.value === 'string' ||
+                            node.right.type === 'Literal' && typeof node.right.value === 'string')
+                    ) {
+                        throw new Error('Prohibited statement: String concatenation is not allowed.');
                     }
-                });
-
-                // Additional checks for obfuscation
-                if (/fromCharCode/.test(resolvedProgram)) {
-                    throw new Error('Prohibited statement: Use of "fromCharCode" detected in obfuscated code.');
+                },
+                AssignmentExpression(node) {
+                    if (
+                        node.operator === '+=' &&
+                        node.left.type === 'Identifier' &&
+                        node.right.type === 'Literal' &&
+                        typeof node.right.value === 'string'
+                    ) {
+                        throw new Error('Prohibited statement: String concatenation using "+=" is not allowed.');
+                    }
+                },
+                TemplateLiteral(node) {
+                    throw new Error('Prohibited statement: Template literals are not allowed.');
+                },
+                Identifier(node) {
+                    if (prohibitedKeywords.includes(node.name)) {
+                        throw new Error(`Prohibited statement: Use of "${node.name}" is not allowed.`);
+                    }
+                },
+                Literal(node) {
+                    if (typeof node.value === 'string') {
+                        throw new Error('Prohibited statement: String literals are not allowed.');
+                    }
                 }
+            });
 
-                if (/\\u[\dA-Fa-f]{4}|\\x[\dA-Fa-f]{2}/.test(resolvedProgram)) {
-                    throw new Error('Prohibited statement: Obfuscation detected (escape sequences).');
-                }
-
-                if (/\[\s*\]\[.*?\]/.test(resolvedProgram)) {
-                    throw new Error('Prohibited statement: Obfuscation detected (array indexing patterns).');
-                }
-
-                // Additional runtime checks can be added here if needed
-                detectDynamicExecution(ast);
-                detectObfuscation(resolvedProgram);
-                detectExcessiveConcatenation(ast);
-            };
-
-            validateProgram(normalizedProgram, prohibitedStatements);
-
+            // Create a sandbox for execution
             const sandbox = {
                 ...allowedFunctions,
                 tower: users[userIndex].towers[tower],
@@ -864,19 +813,22 @@ function connection(socket, io) {
                 child_process: undefined,
             };
 
-            console.log('Normalized Program:', normalizedProgram);
-            // let script = new vm.Script(program);
-            // let context = vm.createContext(sandbox);
+            // // Execute the program in the sandbox
+            // const vm = require('vm');
+            // const script = new vm.Script(program);
+            // const context = vm.createContext(sandbox);
             // script.runInContext(context, { timeout: 250 });
-            users[userIndex].towers[tower].userCode = { program: program, sandbox: sandbox };
-            console.log('Program executed successfully.', program);
+
+            // Save the program to the tower
+            users[userIndex].towers[tower].userCode = { program, sandbox };
+            console.log('Program executed successfully:', program);
         } catch (error) {
             if (error.message.includes('Script execution timed out')) {
                 console.error('Error: Script execution timed out.');
                 socket.emit('errorMessage', 'Your program took too long to execute.');
             } else {
                 console.error('Error executing user program:', error.message);
-                socket.emit('errorMessage', 'An error occurred while executing the program.');
+                socket.emit('errorMessage', `An error occurred: ${error.message}`);
             }
         }
     });
@@ -914,13 +866,13 @@ function connection(socket, io) {
             socket.emit('upgradePathChosen', { towerIndex, path });
         }
     });
-    
+
     socket.on('upgradeTower', (towerIndex) => {
         const tower = users[userIndex].towers[towerIndex];
         if (tower) {
             tower.upgrade();
             socket.emit('towerUpgraded', { towerIndex, upgradeLevel: tower.upgradeLevel });
-        } 
+        }
     });
 
     socket.on('sellTower', (towerIndex) => {
@@ -968,82 +920,85 @@ function connection(socket, io) {
     });
 };
 
+// Create a global enemy pool with a pre-allocated size
+const enemyPool = new EnemyPool(100); // Adjust the size based on your game's needs
+
 let gameLoop = setInterval(() => {
     ticks++;
-    users.forEach((user) => {
-        let userIndex = user.userIndex;
-        let socket = user.socket;
 
-        // Ensures that the user is still connected
-        if (userIndex != -1) {
-            if (!user.gameOver && user.gameIsRunning) {
-                // Handles the movement and status updates of each enemy
-                user.enemies.forEach((enemy) => {
-                    // enemy.updateStatuses(); // Update enemy statuses
-                    enemy.move(); // Move the enemy    
-                });
+    for (const user of users) {
+        if (user.gameOver || !user.gameIsRunning) continue;
 
-                // Handles the shooting and status updates of each tower
-                user.towers.forEach(tower => {
-                    // tower.updateStatuses(); // Update tower statuses
-                    tower.findTarget(ticks); // Find a target for the tower
-                    if (ticks - tower.lastShotTime >= 30) {
-                        tower.shootLocation = null;
-                    }
-                });
+        // Cache user data
+        const { socket, enemies, towers, waveQueue, sectionQueue } = user;
 
-                // Handles the wave queue and sends the sections of the wave to the section queue
-                if (user.waveQueue.length > 0) {
-                    if (users[userIndex].waveQueue[0].wave.length > 0) {
-                        const request = users[userIndex].waveQueue[0];
-                        let currentSection = request.wave[0];
-                        const currentTime = ticks;
-                        if (currentTime - ticks >= currentSection.wait) {
-                            users[userIndex].sectionQueue.push({ section: currentSection, userIndex, timeAfterLastSpawn: 0 });
-                            request.wave.splice(0, 1);
-                            if (request.wave.length > 0) {
-                                currentSection = request.wave[0];
-                            } else {
-                                users[userIndex].waveQueue.splice(0, 1);
-                            }
-                        } else {
-                            currentSection.wait -= 1;
-                        }
-                    } else {
-                        users[userIndex].waveQueue.splice(0, 1);
-                    }
-                }
+        // Update enemies
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            enemies[i].move();
+        }
 
-                // Handles the section queue and spawns enemies from the queue
-                if (user.sectionQueue.length > 0) {
-                    const request = users[userIndex].sectionQueue[0];
-                    let currentSection = request.section;
-                    if (request.timeAfterLastSpawn >= currentSection.spawnInterval) {
-                        new Enemy(currentSection.enemyType, userIndex, { healthBorder: true });
-                        request.timeAfterLastSpawn = 0;
-                        request.section.amount--;
-                        if (request.section.amount <= 0) {
-                            users[userIndex].sectionQueue.splice(0, 1);
-                        }
-                    } else {
-                        request.timeAfterLastSpawn++;
-                    }
-                }
+        // Update towers
+        for (const tower of towers) {
+            tower.findTarget(ticks);
+            if (ticks - tower.lastShotTime >= 30) {
+                tower.shootLocation = null;
             }
         }
 
-        // Sends the game data to the client
+        // Process wave queue
+        if (waveQueue.length > 0) {
+            const request = waveQueue[0];
+            const currentSection = request.wave[0];
+
+            if (currentSection.wait <= 0) {
+                sectionQueue.push({ section: currentSection, userIndex: user.userIndex, timeAfterLastSpawn: 0 });
+                request.wave.shift();
+                if (request.wave.length === 0) waveQueue.shift();
+            } else {
+                currentSection.wait--;
+            }
+        }
+
+        // Process section queue
+        if (sectionQueue.length > 0) {
+            const request = sectionQueue[0];
+            const { section } = request;
+        
+            if (request.timeAfterLastSpawn >= section.spawnInterval) {
+                // Use the enemy pool to get an enemy
+                const enemy = enemyPool.getEnemy(section.enemyType, user.userIndex, { healthBorder: true });
+                if (enemy) {
+                    request.timeAfterLastSpawn = 0;
+                    section.amount--;
+        
+                    if (section.amount <= 0) sectionQueue.shift();
+                }
+            } else {
+                request.timeAfterLastSpawn++;
+            }
+        }
+        
+        // Release enemies when they are defeated
+        for (let i = user.enemies.length - 1; i >= 0; i--) {
+            const enemy = user.enemies[i];
+            if (enemy.health <= 0) {
+                user.money += enemy.maxHealth; // Reward money for defeating the enemy
+                user.enemies.splice(i, 1); // Remove from active enemies
+                enemyPool.releaseEnemy(enemy); // Return the enemy to the pool
+            }
+        }
+
+        // Send minimal game data to the client
         socket.emit('gameData', {
-            gridData: { grid, rows, cols },
-            enemyData: user.enemies,
-            towerData: user.towers,
-            baseHealth: user.health,
+            enemies: user.enemies.map(({ x, y, health }) => [x, y, health]), // Use arrays for minimal data
+            towers: user.towers.map(({ x, y, range }) => [x, y, range]),    // Use arrays for minimal data
+            health: user.health,
             money: user.money,
             wave: user.currentWave,
-            gameOverStatus: user.gameOver,
-            gameRunningStatus: user.gameIsRunning
+            gameOver: user.gameOver,
+            running: user.gameIsRunning
         });
-    });
+    }
 }, 1000 / frameRate);
 
 module.exports = {

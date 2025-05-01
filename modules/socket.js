@@ -219,7 +219,7 @@ class Enemy {
 
     move() {
         this.updateStatuses(); // Update statuses before moving
-    
+
         // Check if the enemy has reached the current target point
         if (this.nextX === undefined || this.nextY === undefined || (this.x === this.nextX && this.y === this.nextY)) {
             if (this.currentIndex < pathPoint.length - 1) {
@@ -570,17 +570,145 @@ class Tower {
 
         this.lastShotTime = currentTime;
         this.shootLocation = { x: enemyInstance.x, y: enemyInstance.y };
-        this.inflictStatuses.forEach(status => {
-            enemyInstance.addStatus(status);
-        });
-        if (enemyInstance.health <= this.effectiveStats.damage) {
-            this.damageCount += enemyInstance.health;
-        } else {
-            this.damageCount += this.effectiveStats.damage;
+
+        const user = users.get(this.userId);
+        if (user) {
+            const projectile = projectilePool.getProjectile(
+                this.x,
+                this.y,
+                enemyInstance.x,
+                enemyInstance.y,
+                5, // Speed of the projectile
+                this.effectiveStats.damage, // Damage of the projectile
+                'normal', // Type of the projectile
+                'red' // Color of the projectile
+            );
+
+            if (projectile) {
+                user.projectiles.push(projectile);
+                console.log(user.projectiles);
+                
+            }
         }
-        enemyInstance.health -= this.effectiveStats.damage;
-        if (enemyInstance.healthBorder) {
-            enemyInstance.updateHealthBorder();
+    }
+}
+
+// Projectiles
+class Projectile {
+    constructor(presetProjectile, userId, x, y, targetX, targetY, speed, damage, projectileType, color) {
+        this.initialize(x, y, targetX, targetY, speed, damage, projectileType, color, userId);
+    }
+
+    initialize(x, y, targetX, targetY, speed, damage, projectileType, color, userId) {
+        this.x = x;
+        this.y = y;
+        this.targetX = targetX;
+        this.targetY = targetY;
+        this.speed = speed;
+        this.damage = damage;
+        this.projectileType = projectileType; // Type of projectile (e.g., 'normal', 'explosive')
+        this.color = color; // Color of the projectile
+        this.userId = userId; // User ID associated with the projectile
+        this.lifeTime = 100; // Lifetime in ticks
+        this.directionX = null; // Direction vector for movement
+        this.directionY = null; // Direction vector for movement
+    }
+
+    reset() {
+        this.x = 0;
+        this.y = 0;
+        this.targetX = 0;
+        this.targetY = 0;
+        this.speed = 0;
+        this.damage = 0;
+        this.type = null; // Reset type to null
+        this.color = null; // Reset color to null
+        this.userId = null; // Reset userId to null
+        this.lifeTime = 100; // Reset lifetime in ticks
+        this.directionX = null; // Reset direction vector
+        this.directionY = null; // Reset direction vector
+    }
+
+    move() {
+        // Calculate direction vector only once
+        if (!this.directionX || !this.directionY) {
+            const dx = this.targetX - this.x;
+            const dy = this.targetY - this.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance === 0) {
+                this.reset();
+                return;
+            }
+
+            this.directionX = dx / distance;
+            this.directionY = dy / distance;
+        }
+
+        // Move the projectile
+        this.x += this.directionX * this.speed;
+        this.y += this.directionY * this.speed;
+
+        // Check for collisions with enemies
+        const user = users.get(this.userId);
+        if (user) {
+            for (let i = user.enemies.length - 1; i >= 0; i--) {
+                const enemy = user.enemies[i];
+                const enemyRadius = enemy.size / 2;
+                const projectileRadius = 2; // Adjust as needed for projectile size
+                const collisionDistance = enemyRadius + projectileRadius;
+
+                const distanceToEnemy = Math.sqrt(
+                    Math.pow(enemy.x - this.x, 2) + Math.pow(enemy.y - this.y, 2)
+                );
+
+                if (distanceToEnemy <= collisionDistance) {
+                    // Deal damage to the enemy
+                    enemy.health -= this.damage;
+                    if (enemy.health <= 0) {
+                        user.money += enemy.maxHealth; // Reward money for defeating the enemy
+                        user.enemies.splice(i, 1); // Remove enemy from active list
+                        enemyPool.releaseEnemy(enemy); // Return enemy to the pool
+                    }
+
+                    // Remove the projectile after hitting an enemy
+                    this.reset();
+                    return;
+                }
+            }
+        }
+
+        // Reduce lifetime and remove if expired
+        this.lifeTime--;
+    }
+}
+
+class ProjectilePool {
+    constructor(size) {
+        this.pool = [];
+        this.activeProjectiles = new Set(); // Track active projectiles for debugging or reuse
+
+        for (let i = 0; i < size; i++) {
+            this.pool.push(new Projectile(0, 0, 0, 0, 0, 0, '', '')); // Pre-allocate Projectile objects
+        }
+    }
+
+    getProjectile(x, y, targetX, targetY, speed, damage, type, color) {
+        if (this.pool.length > 0) {
+            const projectile = this.pool.pop();
+            projectile.x = x;
+            projectile.y = y;
+            projectile.targetX = targetX;
+            projectile.targetY = targetY;
+            projectile.speed = speed;
+            projectile.damage = damage;
+            projectile.type = type;
+            projectile.color = color;
+            this.activeProjectiles.add(projectile); // Track the active projectile
+            return projectile;
+        } else {
+            console.warn('Projectile pool is empty! Consider increasing the pool size.');
+            return null; // Return null instead of creating a new projectile
         }
     }
 }
@@ -696,6 +824,7 @@ function connection(socket, io) {
             id: userId,
             enemies: [],
             towers: [],
+            projectiles: [],
             waveQueue: [],
             sectionQueue: [],
             health: 100,
@@ -703,6 +832,7 @@ function connection(socket, io) {
             currentWave: -1,
             gameIsRunning: true,
             gameOver: false,
+            settings: {},
             socket: socket
         });
     } else {
@@ -995,6 +1125,7 @@ function connection(socket, io) {
 
 // Create a global enemy pool with a pre-allocated size
 const enemyPool = new EnemyPool(2500);
+const projectilePool = new ProjectilePool(1000);
 let gameLoop = setInterval(() => {
     ticks++;
 
@@ -1017,6 +1148,17 @@ let gameLoop = setInterval(() => {
             tower.findTarget(ticks);
             if (ticks - tower.lastShotTime >= 30) {
                 tower.shootLocation = null;
+            }
+        }
+
+        // Update projectiles
+        for (let i = user.projectiles.length - 1; i >= 0; i--) {
+            const projectile = user.projectiles[i];
+            projectile.move();
+            if (projectile.lifeTime <= 0) {
+                projectile.reset();
+                user.projectiles.splice(i, 1); // Remove expired projectiles
+                projectilePool.pool.push(projectile); // Return to the pool
             }
         }
 
@@ -1069,6 +1211,7 @@ let gameLoop = setInterval(() => {
                 gridData: { grid, rows, cols },
                 enemyData: user.enemies,
                 towerData: user.towers,
+                projectileData: user.projectiles,
                 health: user.health,
                 money: user.money,
                 wave: user.currentWave,

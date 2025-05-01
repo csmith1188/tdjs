@@ -578,16 +578,15 @@ class Tower {
                 this.y,
                 enemyInstance.x,
                 enemyInstance.y,
-                5, // Speed of the projectile
+                0.2, // Speed of the projectile
                 this.effectiveStats.damage, // Damage of the projectile
                 'normal', // Type of the projectile
-                'red' // Color of the projectile
+                'red', // Color of the projectile
+                this.userId, // User ID associated with the projectile
             );
 
             if (projectile) {
                 user.projectiles.push(projectile);
-                console.log(user.projectiles);
-                
             }
         }
     }
@@ -595,23 +594,26 @@ class Tower {
 
 // Projectiles
 class Projectile {
-    constructor(presetProjectile, userId, x, y, targetX, targetY, speed, damage, projectileType, color) {
-        this.initialize(x, y, targetX, targetY, speed, damage, projectileType, color, userId);
+    constructor(presetProjectile, userId, x, y, targetX, targetY, speed, damage, projectileType, color, size, pierce) {
+        this.initialize(x, y, targetX, targetY, speed, damage, projectileType, color, userId, size, pierce);
     }
 
-    initialize(x, y, targetX, targetY, speed, damage, projectileType, color, userId) {
+    initialize(x, y, targetX, targetY, speed, damage, projectileType, color, userId, size, pierce) {
         this.x = x;
         this.y = y;
         this.targetX = targetX;
         this.targetY = targetY;
         this.speed = speed;
+        this.size = size || 5; // Default size if not provided
         this.damage = damage;
+        this.pierce = pierce || 5; // Default pierce if not provided
         this.projectileType = projectileType; // Type of projectile (e.g., 'normal', 'explosive')
         this.color = color; // Color of the projectile
         this.userId = userId; // User ID associated with the projectile
         this.lifeTime = 100; // Lifetime in ticks
         this.directionX = null; // Direction vector for movement
         this.directionY = null; // Direction vector for movement
+        this.noHitList = []; // List of enemies that the projectile has already hit
     }
 
     reset() {
@@ -624,14 +626,16 @@ class Projectile {
         this.type = null; // Reset type to null
         this.color = null; // Reset color to null
         this.userId = null; // Reset userId to null
-        this.lifeTime = 100; // Reset lifetime in ticks
+        this.lifeTime = 5; // Reset lifetime in ticks
         this.directionX = null; // Reset direction vector
         this.directionY = null; // Reset direction vector
+        this.noHitList = []; // Reset noHitList
+        this.pierce = undefined; // Reset pierce to null
     }
 
     move() {
         // Calculate direction vector only once
-        if (!this.directionX || !this.directionY) {
+        if (!this.directionX && !this.directionY) {
             const dx = this.targetX - this.x;
             const dy = this.targetY - this.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
@@ -654,34 +658,43 @@ class Projectile {
         if (user) {
             for (let i = user.enemies.length - 1; i >= 0; i--) {
                 const enemy = user.enemies[i];
-                const enemyRadius = enemy.size / 2;
-                const projectileRadius = 2; // Adjust as needed for projectile size
-                const collisionDistance = enemyRadius + projectileRadius;
+                const projectileRadius = 1;
 
                 const distanceToEnemy = Math.sqrt(
                     Math.pow(enemy.x - this.x, 2) + Math.pow(enemy.y - this.y, 2)
                 );
 
-                if (distanceToEnemy <= collisionDistance) {
-                    // Deal damage to the enemy
-                    enemy.health -= this.damage;
-                    if (enemy.health <= 0) {
-                        user.money += enemy.maxHealth; // Reward money for defeating the enemy
-                        user.enemies.splice(i, 1); // Remove enemy from active list
-                        enemyPool.releaseEnemy(enemy); // Return enemy to the pool
+                if (distanceToEnemy <= projectileRadius) {
+                    if (!this.noHitList.includes(enemy)) {
+                        this.noHitList.push(enemy); // Add enemy to noHitList to prevent multiple hits
+                        // Deal damage to the enemy
+                        enemy.health -= this.damage;
+                        if (enemy.health <= 0) {
+                            user.money += enemy.maxHealth; // Reward money for defeating the enemy
+                            user.enemies.splice(i, 1); // Remove enemy from active list
+                            enemyPool.releaseEnemy(enemy); // Return enemy to the pool
+                        }
+                        // Handle piercing
+                        this.pierce--;
+                        if (this.pierce <= 0) {
+                            this.reset(); // Reset the projectile
+                            return; // Stop processing further collisions
+                        }
                     }
-
-                    // Remove the projectile after hitting an enemy
-                    this.reset();
-                    return;
                 }
             }
         }
 
         // Reduce lifetime and remove if expired
-        this.lifeTime--;
+        this.lifeTime-=this.speed;
+        if (this.lifeTime <= 0) {
+            this.reset()
+            return; // Stop processing further collisions
+        }
     }
 }
+
+// Chris was here
 
 class ProjectilePool {
     constructor(size) {
@@ -693,7 +706,7 @@ class ProjectilePool {
         }
     }
 
-    getProjectile(x, y, targetX, targetY, speed, damage, type, color) {
+    getProjectile(x, y, targetX, targetY, speed, damage, type, color, userId, pierce) {
         if (this.pool.length > 0) {
             const projectile = this.pool.pop();
             projectile.x = x;
@@ -704,6 +717,8 @@ class ProjectilePool {
             projectile.damage = damage;
             projectile.type = type;
             projectile.color = color;
+            projectile.userId = userId;
+            projectile.pierce = pierce || 5; // Default pierce if not provided
             this.activeProjectiles.add(projectile); // Track the active projectile
             return projectile;
         } else {

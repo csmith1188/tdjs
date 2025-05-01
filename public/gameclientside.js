@@ -104,12 +104,10 @@ function drawPreviewTower() {
 }
 
 function drawProjectile(projectile) {
-    console.log(projectile);
-    
     const { x, y, color, size } = projectile;
-    ctx.fillStyle = 'red';
+    ctx.fillStyle = color; // Use the projectile's color
     ctx.beginPath();
-    ctx.arc(100 * spacing + spacing / 2, 100 * spacing + spacing / 2, 20 / 2, 0, 2 * Math.PI);
+    ctx.arc(x * spacing + spacing / 2, y * spacing + spacing / 2, size / 2, 0, 2 * Math.PI); // Draw a circle
     ctx.fill();
 }
 

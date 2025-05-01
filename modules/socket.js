@@ -8,7 +8,7 @@ const pathPoint2 = [{ y: 2, x: 0 }, { y: 2, x: 25 }, { y: 6, x: 25 }, { y: 6, x:
 const pathPoint3 = [{ y: 2, x: 0 }, { y: 2, x: 3 }, { y: 6, x: 3 }, { y: 6, x: 5 }, { y: 10, x: 5 }, { y: 10, x: 7 }, { y: 6, x: 7 }, { y: 6, x: 9 }, { y: 10, x: 9 }, { y: 10, x: 11 }, { y: 6, x: 11 }, { y: 6, x: 13 }, { y: 10, x: 13 }, { y: 10, x: 15 }, { y: 6, x: 15 }, { y: 6, x: 17 }, { y: 10, x: 17 }, { y: 10, x: 19 }, { y: 6, x: 19 }, { y: 6, x: 21 }, { y: 10, x: 21 }, { y: 10, x: 23 }, { y: 6, x: 23 }, { y: 6, x: 25 }, { y: 10, x: 25 }, { y: 10, x: 27 }, { y: 6, x: 27 }, { y: 6, x: 29 }, { y: 10, x: 29 }, { y: 10, x: 31 }, { y: 18, x: 31 }];
 const pathPoint4 = [{ y: 2, x: 0 }, { y: 2, x: 15 }, { y: 10, x: 15 }, { y: 10, x: 11 }, { y: 6, x: 11 }, { y: 6, x: 19 }, { y: 10, x: 19 }, { y: 10, x: 15 }, { y: 18, x: 15 }, { y: 18, x: 31 }];
 const pathPoint5 = [{ y: 2, x: 0 }, { y: 2, x: 15 }, { y: 10, x: 15 }, { y: 10, x: 11 }, { y: 6, x: 11 }, { y: 6, x: 19 }, { y: 2, x: 19 }, { y: 2, x: 15 }, { y: 18, x: 15 }, { y: 18, x: 31 }];
-var users = []
+const users = new Map();
 var ticks = 0;
 
 // use the format of { enemyType: '<enemy name>', amount: #, spawnInterval: #, wait: # } inside of a list inside the waves list to make a section of a wave
@@ -65,13 +65,21 @@ waves = [
 // EEEEE   NN  NN   EEEEE   MM   MM     YYY
 class Enemy {
     constructor(enemyType, userIndex, options) {
+        this.initialize(enemyType, userIndex, options);
+    }
+
+    initialize(enemyType, userId, options) {
         this.x = 0;
         this.y = 2;
-        this.userIndex = userIndex;
+        this.userId = userId; // Replace userIndex with userId
         this.enemyType = enemyType;
         this.healthBorder = options.healthBorder || false;
         this.distanceFromStart = 0;
         this.statuses = []; // Array to store active statuses
+        this.size = 32;
+        this.currentIndex = 0;
+        this.nextX = undefined;
+        this.nextY = undefined;
 
         // Initialize original stats and effective stats
         this.updateStats();
@@ -80,19 +88,69 @@ class Enemy {
             armor: 0
         };
 
-        users[this.userIndex].enemies.push(this);
-        this.updatePosition(this.userIndex);
+        const user = users.get(this.userId);
+        if (user) {
+            user.enemies.push(this); // Add the enemy to the user's enemies array
+        }
+        this.updatePosition();
+    }
 
-        // this.addStatus(slowStatus, 600, 10);
+    reset() {
+        // Reset all properties to default values
+        this.x = 0;
+        this.y = 2;
+        this.userId = null; // Replace userIndex with userId
+        this.enemyType = null;
+        this.healthBorder = false;
+        this.distanceFromStart = 0;
+        this.statuses = [];
+        this.size = 32;
+        this.effectiveStats = {
+            speed: 0,
+            armor: 0
+        };
     }
 
     addStatus(status, customDuration = null, strength = 1) {
-        // Clone the status before adding it
+        // Check if the status already exists
+        const existingStatusIndex = this.statuses.findIndex(s => s.type === status.type);
+
+        if (existingStatusIndex !== -1) {
+            const existingStatus = this.statuses[existingStatusIndex];
+
+            // Compare strengths
+            if (strength > existingStatus.strength) {
+
+                // Replace the existing status with the new one
+                this.statuses[existingStatusIndex] = new Status(
+                    status.type,
+                    customDuration !== null ? customDuration : status.duration,
+                    status.effect,
+                    strength
+                );
+            } else if (strength === existingStatus.strength) {
+                // Compare durations if strengths are equal
+                const newDuration = customDuration !== null ? customDuration : status.duration;
+                if (newDuration > existingStatus.duration) {
+                    // Replace the existing status with the new one
+                    this.statuses[existingStatusIndex] = new Status(
+                        status.type,
+                        newDuration,
+                        status.effect,
+                        strength
+                    );
+                }
+            }
+            // If the new status is weaker or has a shorter duration, discard it
+            return;
+        }
+
+        // If the status doesn't exist, add it
         const clonedStatus = new Status(
             status.type,
-            customDuration !== null ? customDuration : status.duration, // Use custom duration if provided
+            customDuration !== null ? customDuration : status.duration,
             status.effect,
-            strength // Pass the strength to the cloned status
+            strength
         );
         this.statuses.push(clonedStatus);
     }
@@ -118,28 +176,24 @@ class Enemy {
                 this.maxHealth = this.health;
                 this.speed = 40;
                 this.color = 'white';
-                this.size = 45;
                 break;
             case 'fast':
                 this.health = 5;
                 this.maxHealth = 5;
                 this.speed = 60;
                 this.color = 'dodgerblue';
-                this.size = 45;
                 break;
             case 'slow':
                 this.health = 20;
                 this.maxHealth = 20;
                 this.speed = 30;
                 this.color = 'green';
-                this.size = 45;
                 break;
             case 'boss':
                 this.health = 100;
                 this.maxHealth = 100;
                 this.speed = 10;
                 this.color = 'white';
-                this.size = 55;
                 break;
         }
 
@@ -154,56 +208,89 @@ class Enemy {
     }
 
     updatePosition() {
-        const enemyIndex = users[this.userIndex].enemies.findIndex(e => e === this);
-        this.distanceFromStart++;
-        if (enemyIndex !== -1) {
-            users[this.userIndex].enemies[enemyIndex] = this;
+        const user = users.get(this.userId);
+        if (user) {
+            const enemyIndex = user.enemies.findIndex(e => e === this);
+            if (enemyIndex !== -1) {
+                user.enemies[enemyIndex] = this;
+            }
         }
     }
 
     move() {
         this.updateStatuses(); // Update statuses before moving
-
-        const currentPoint = pathPoint.find(point => point.x === this.x && point.y === this.y);
-        if (currentPoint) {
-            const currentIndex = pathPoint.indexOf(currentPoint);
-            if (currentIndex < pathPoint.length - 1) {
-                this.nextX = pathPoint[currentIndex + 1].x;
-                this.nextY = pathPoint[currentIndex + 1].y;
+    
+        // Check if the enemy has reached the current target point
+        if (this.nextX === undefined || this.nextY === undefined || (this.x === this.nextX && this.y === this.nextY)) {
+            if (this.currentIndex < pathPoint.length - 1) {
+                this.currentIndex++;
+                const nextPoint = pathPoint[this.currentIndex];
+                this.nextX = nextPoint.x;
+                this.nextY = nextPoint.y;
             } else {
-                users[this.userIndex].health -= this.effectiveStats.health;
-                users[this.userIndex].enemies.splice(users[this.userIndex].enemies.indexOf(this), 1);
-                if (users[this.userIndex].health <= 0) {
-                    users[this.userIndex].health = 0;
-                    users[this.userIndex].gameOver = true;
-                    users[this.userIndex].gameIsRunning = false;
+                // Handle reaching the end of the path
+                const user = users.get(this.userId);
+                if (user) {
+                    user.health -= this.effectiveStats.health;
+                    user.enemies.splice(user.enemies.indexOf(this), 1);
+                    if (user.health <= 0) {
+                        user.health = 0;
+                        user.gameOver = true;
+                        user.gameIsRunning = false;
+                    }
                 }
+                return;
             }
         }
 
-        // Move towards the target cell using effective speed
-        if (this.x < this.nextX) {
-            this.x += this.effectiveStats.speed / 1000;
-            if (this.x > this.nextX) {
-                this.x = this.nextX;
-            }
-        } else if (this.x > this.nextX) {
-            this.x -= this.effectiveStats.speed / 1000;
-            if (this.x < this.nextX) {
-                this.x = this.nextX;
-            }
-        } else if (this.y < this.nextY) {
-            this.y += this.effectiveStats.speed / 1000;
-            if (this.y > this.nextY) {
-                this.y = this.nextY;
-            }
-        } else if (this.y > this.nextY) {
-            this.y -= this.effectiveStats.speed / 1000;
-            if (this.y < this.nextY) {
-                this.y = this.nextY;
-            }
+        // Calculate movement
+        const speed = this.effectiveStats.speed / 1000;
+        const dx = this.nextX - this.x;
+        const dy = this.nextY - this.y;
+
+        if (dx !== 0) {
+            this.x += Math.sign(dx) * Math.min(speed, Math.abs(dx));
+            this.x = Math.round(this.x * 1000) / 1000;
+        } else if (dy !== 0) {
+            this.y += Math.sign(dy) * Math.min(speed, Math.abs(dy));
+            this.y = Math.round(this.y * 1000) / 1000;
         }
+
+        this.distanceFromStart += speed;
         this.updatePosition();
+    }
+}
+
+class EnemyPool {
+    constructor(size) {
+        this.pool = [];
+        this.activeEnemies = new Set(); // Track active enemies for debugging or reuse
+
+        for (let i = 0; i < size; i++) {
+            this.pool.push(new Enemy(null, null, {})); // Pre-allocate Enemy objects
+        }
+    }
+
+    getEnemy(enemyType, userIndex, options) {
+        if (this.pool.length > 0) {
+            const enemy = this.pool.pop();
+            enemy.initialize(enemyType, userIndex, options); // Reinitialize the enemy
+            this.activeEnemies.add(enemy); // Track the active enemy
+            return enemy;
+        } else {
+            console.warn('Enemy pool is empty! Consider increasing the pool size.');
+            return null; // Return null instead of creating a new enemy
+        }
+    }
+
+    releaseEnemy(enemy) {
+        if (this.activeEnemies.has(enemy)) {
+            this.activeEnemies.delete(enemy); // Remove from active enemies
+            enemy.reset(); // Reset the enemy to its default state
+            this.pool.push(enemy); // Return the enemy to the pool
+        } else {
+            console.warn('Attempted to release an enemy that is not active.');
+        }
     }
 }
 
@@ -214,14 +301,16 @@ class Enemy {
 //     TTT      OOOOO     WW WW    EEEEE   R   R    SSS 
 
 class Tower {
-    constructor(presetTower, userIndex, options, y, x, range, damage, fireRate, targetingType, projectileType) {
+    constructor(presetTower, user, options, y, x, range, damage, fireRate, targetingType, projectileType) {
         this.x = x;
         this.y = y;
-        this.index = users[userIndex].towers.length;
-        this.userIndex = userIndex;
-        this.lastShotTime = 0;
+        this.index = users.get(user).towers.length;
+        this.userId = user;
         this.userCode = null;
         this.statuses = []; // Array to store active statuses
+        this.inflictStatuses = [];
+        this.upgradePath = null; // No path chosen initially
+        this.upgradeLevel = 0; // Start at level 0
 
         // Initialize original stats and effective stats
         this.updateStats(presetTower);
@@ -234,6 +323,121 @@ class Tower {
         this.shootLocation = null;
         this.damageCount = 0;
         this.targetingType = 'first';
+    }
+
+    updateStats(presetTower) {
+        const upgradePaths = {
+            basic: {
+                path1: [
+                    { name: 'Extended Range', range: 4, damage: 2, fireRate: 2, price: 10 },
+                    { name: 'Improved Damage', range: 5, damage: 3, fireRate: 2.5, price: 20 },
+                    { name: 'Advanced Targeting', range: 6, damage: 4, fireRate: 3, price: 30 }
+                ],
+                path2: [
+                    { name: 'High Impact', range: 3, damage: 5, fireRate: 1.5, price: 15 },
+                    { name: 'Enhanced Power', range: 4, damage: 7, fireRate: 2, price: 25 },
+                    { name: 'Devastating Force', range: 5, damage: 10, fireRate: 2.5, price: 40 }
+                ]
+            },
+            sniper: {
+                path1: [
+                    { name: 'Precision Scope', range: 8, damage: 10, fireRate: 0.5, price: 20 },
+                    { name: 'Long Range Shot', range: 9, damage: 15, fireRate: 0.6, price: 40 },
+                    { name: 'Deadly Accuracy', range: 10, damage: 20, fireRate: 0.7, price: 60 }
+                ],
+                path2: [
+                    { name: 'Rapid Fire', range: 7, damage: 12, fireRate: 0.8, price: 25 },
+                    { name: 'Powerful Strike', range: 8, damage: 18, fireRate: 1, price: 50 },
+                    { name: 'Ultimate Sniper', range: 9, damage: 25, fireRate: 1.2, price: 75 }
+                ]
+            }
+        };
+
+        if (this.upgradePath) {
+            const stats = upgradePaths[presetTower][this.upgradePath][this.upgradeLevel];
+            this.range = stats.range;
+            this.damage = stats.damage;
+            this.fireRate = stats.fireRate;
+            this.price = stats.price;
+        } else {
+            // Default stats for the base tower
+            switch (presetTower) {
+                case 'basic':
+                    this.size = 10;
+                    this.color = 'lightblue';
+                    this.range = 4;
+                    this.damage = 2;
+                    this.fireRate = 2;
+                    this.name = 'Basic';
+                    this.price = 10;
+                    break;
+                case 'sniper':
+                    this.size = 10;
+                    this.color = 'lightcoral';
+                    this.range = 8;
+                    this.damage = 10;
+                    this.fireRate = 0.5;
+                    this.name = 'Sniper';
+                    this.price = 20;
+                    break;
+                case 'machineGun':
+                    this.size = 10;
+                    this.color = 'lightgreen';
+                    this.range = 3;
+                    this.damage = 1;
+                    this.fireRate = 10;
+                    this.name = 'MachineGun';
+                    this.price = 15;
+                    break;
+                case 'slowTower':
+                    this.size = 10;
+                    this.color = 'lightyellow';
+                    this.range = 4;
+                    this.damage = 0;
+                    this.fireRate = 2;
+                    this.name = 'SlowTower';
+                    this.inflictStatuses.push(slowStatus);
+                    this.price = 15;
+                    break;
+            }
+            this.shootLocation = null;
+            this.damageCount = 0;
+            this.lastShotTime = 0;
+        }
+    }
+
+    chooseUpgradePath(path) {
+        if (this.upgradePath === null) {
+            this.upgradePath = path;
+            console.log(`Upgrade path ${path} chosen.`);
+        } else {
+            console.log('Upgrade path already chosen and cannot be changed.');
+        }
+    }
+
+    upgrade() {
+        const user = users.get(this.userId);
+        if (user) {
+            const maxUpgradeLevel = 2;
+            if (this.upgradePath === null) {
+                console.log('No upgrade path chosen. Please choose a path first.');
+                return;
+            }
+
+            if (this.upgradeLevel < maxUpgradeLevel) {
+                const upgradeCost = this.price;
+                if (user.money >= upgradeCost) {
+                    user.money -= upgradeCost;
+                    this.upgradeLevel++;
+                    this.updateStats(this.name.toLowerCase());
+                    console.log(`Tower upgraded to level ${this.upgradeLevel} on path ${this.upgradePath}`);
+                } else {
+                    console.log('Not enough money to upgrade.');
+                }
+            } else {
+                console.log('Tower is already at max level for this path.');
+            }
+        }
     }
 
     addStatus(status, customDuration = null, strength = 1) {
@@ -260,87 +464,75 @@ class Tower {
         });
     }
 
-    updateStats(presetTower) {
-        switch (presetTower) {
-            case 'basic':
-                this.size = 10;
-                this.color = 'lightblue';
-                this.range = 4;
-                this.damage = 2;
-                this.fireRate = 2;
-                this.name = 'Basic';
-                this.price = 10;
-                break;
-            case 'sniper':
-                this.size = 10;
-                this.color = 'lightcoral';
-                this.range = 8;
-                this.damage = 10;
-                this.fireRate = 0.5;
-                this.name = 'Sniper';
-                this.price = 20;
-                break;
-            case 'machineGun':
-                this.size = 10;
-                this.color = 'lightgreen';
-                this.range = 3;
-                this.damage = 1;
-                this.fireRate = 10;
-                this.name = 'MachineGun';
-                this.price = 15;
-                break;
-        }
-        this.shootLocation = null;
-        this.damageCount = 0;
-        this.targetingType = 'first';
-    }
-
     findTarget(ticks) {
         this.updateStatuses(); // Update statuses before finding a target
-    
+
         this.currentTime = ticks;
-    
+
         this.getEnemies = () => {
-            return users[this.userIndex].enemies;
+            const user = users.get(this.userId);
+            return user ? user.enemies : [];
         };
-    
-        this.getDistance = (enemy) => {
-            return Math.sqrt(Math.pow(enemy.x - this.x, 2) + Math.pow(enemy.y - this.y, 2));
-        };
-    
-        this.getDistanceFromStart = (enemy) => {
-            return enemy.distanceFromStart;
-        };
-    
-        this.towerCanShoot = () => {
-            if (this.currentTime - this.lastShotTime >= (frameRate / this.effectiveStats.fireRate)) {
-                return true;
-            } else {
-                return false;
+
+        this.findFirst = () => {
+            let farthestEnemy = null;
+            let maxDistance = -Infinity;
+
+            for (const enemy of this.getEnemiesInRange()) {
+                const distanceFromStart = enemy.distanceFromStart;
+                if (distanceFromStart > maxDistance) {
+                    maxDistance = distanceFromStart;
+                    farthestEnemy = enemy;
+                }
             }
+
+            return farthestEnemy;
         };
-    
+
+        this.getEnemiesInRange = () => {
+            const enemies = this.getEnemies();
+            const enemiesInRange = [];
+            for (const enemy of enemies) {
+                if (this.inRange(enemy)) {
+                    enemiesInRange.push(enemy);
+                }
+            }
+
+            return enemiesInRange;
+        };
+
+        this.inRange = (enemy) => {
+            const dx = enemy.x - this.x;
+            const dy = enemy.y - this.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            return distance <= this.effectiveStats.range;
+        };
+
+        this.canShoot = () => {
+            return this.currentTime - this.lastShotTime >= (frameRate / this.effectiveStats.fireRate);
+        };
+
         if (this.userCode && !this.scriptIsRunning) {
             this.scriptIsRunning = true;
-    
+
             let script = new vm.Script(this.userCode.program);
             let context = vm.createContext(this.userCode.sandbox);
-    
+
             try {
                 const sanitizeData = (data, seen = new WeakSet()) => {
                     if (typeof data !== 'object' || data === null) {
                         return data;
                     }
-    
+
                     if (seen.has(data)) {
                         return; // Prevent infinite recursion
                     }
                     seen.add(data);
-    
+
                     if (Array.isArray(data)) {
                         return data.map(item => sanitizeData(item, seen));
                     }
-    
+
                     const sanitized = {};
                     for (const key in data) {
                         try {
@@ -355,9 +547,9 @@ class Tower {
                     }
                     return sanitized;
                 };
-    
+
                 this.userCode.sandbox = sanitizeData(this.userCode.sandbox);
-    
+
                 script.runInContext(context, { timeout: 50 }); // Increased timeout to 50ms
             } catch (err) {
                 console.error('Error running script:', err);
@@ -378,19 +570,15 @@ class Tower {
 
         this.lastShotTime = currentTime;
         this.shootLocation = { x: enemyInstance.x, y: enemyInstance.y };
+        this.inflictStatuses.forEach(status => {
+            enemyInstance.addStatus(status);
+        });
         if (enemyInstance.health <= this.effectiveStats.damage) {
             this.damageCount += enemyInstance.health;
         } else {
             this.damageCount += this.effectiveStats.damage;
         }
         enemyInstance.health -= this.effectiveStats.damage;
-        if (enemyInstance.health <= 0) {
-            users[this.userIndex].money += enemyInstance.maxHealth;
-            const index = users[this.userIndex].enemies.indexOf(enemyInstance);
-            if (index > -1) {
-                users[this.userIndex].enemies.splice(index, 1);
-            }
-        }
         if (enemyInstance.healthBorder) {
             enemyInstance.updateHealthBorder();
         }
@@ -439,9 +627,11 @@ const boostStatus = new Status(
 const poisonStatus = new Status(
     'poison',
     100, // Default duration in ticks
-    (effectiveStats, strength) => {
-        effectiveStats.health -= 1 * strength;
-    }
+    (target, strength) => {
+        // Reduce health directly on the target
+        target.health -= strength;
+    },
+    1 // Default strength
 );
 
 //   GGGGGGG     RRRRRRRRR    IIIIIIIIII   DDDDDDDDD
@@ -495,142 +685,102 @@ function calculatePath(grid) {
 //  OOO      T     H   H    EEEEE    R   R
 
 function connection(socket, io) {
+    global.socket = socket;
+    global.io = io;
     socket.id = socket.request.session.user;
     console.log('A user connected,', socket.id);
-    if (!users.find(user => user.id === socket.id)) {
-        users.push({ id: socket.id, userIndex: 'temp', socket: 'temp', gameIsRunning: true, gameOver: false, enemies: [], towers: [], currentWave: -1, waveQueue: [], sectionQueue: [], health: 100, money: 0, wave: 0 });
-    }
+    const userId = socket.id;
 
-    const userIndex = users.findIndex(user => user.id === socket.id);
-    users[userIndex].userIndex = userIndex;
-    users[userIndex].socket = socket;
+    if (!users.has(userId)) {
+        users.set(userId, {
+            id: userId,
+            enemies: [],
+            towers: [],
+            waveQueue: [],
+            sectionQueue: [],
+            health: 100,
+            money: 0,
+            currentWave: -1,
+            gameIsRunning: true,
+            gameOver: false,
+            socket: socket
+        });
+    } else {
+        users.get(userId).socket = socket;
+    }
     const rows = 20;
     const cols = 32;
     let grid = initializeGrid(rows, cols);
     global.rows = rows;
     global.cols = cols;
     global.grid = calculatePath(grid);
-    socket.emit('gameData', [{ grid, rows, cols }, users[userIndex].enemies, users[userIndex].towers]);
+    let user = users.get(userId);
+    if (user) {
+        socket.emit('gameData', {
+            grid,
+            rows,
+            cols,
+            enemies: user.enemies.map(({ x, y, health }) => ({ x, y, health })),
+            towers: user.towers.map(({ x, y, range }) => ({ x, y, range }))
+        });
+    }
 
     socket.on('towerPlace', placementInformation => {
-        let x = Math.floor(placementInformation.x)
-        let y = Math.floor(placementInformation.y)
-        if (!grid[y][x].hasPath && !users[userIndex].towers.find(tower => tower.x === x && tower.y === y)) {
-            users[userIndex].towers.push(new Tower(placementInformation.tower, userIndex, {}, y, x));
+        let user = users.get(socket.id);
+        if (user) {
+            let x = Math.floor(placementInformation.x);
+            let y = Math.floor(placementInformation.y);
+            if (!grid[y][x].hasPath && !user.towers.find(tower => tower.x === x && tower.y === y)) {
+                user.towers.push(new Tower(placementInformation.tower, socket.id, {}, y, x));
+                socket.emit('towerSelected', user.towers[user.towers.length - 1]);
+            }
         }
+    });
 
-
-    })
-
-    socket.on('towerSelect', (towerSelect) => {
-        let x = towerSelect.x
-        let y = towerSelect.y
-        if (users[userIndex].towers.find(tower => tower.x === x && tower.y === y)) {
-            socket.emit('towerSelected', users[userIndex].towers.find(tower => tower.x === x && tower.y === y));
+    socket.on('towerSelect', towerSelect => {
+        let user = users.get(socket.id);
+        if (user) {
+            let x = towerSelect.x;
+            let y = towerSelect.y;
+            const tower = user.towers.find(tower => tower.x === x && tower.y === y);
+            socket.emit('towerSelected', tower || null);
         }
-    })
+    });
+
+    const acorn = require('acorn');
+    const { simple: walkSimple } = require('acorn-walk');
 
     socket.on('userProgram', (program, tower) => {
-        const allowedFunctions = {
-            getEnemies: () => users[userIndex].towers[tower].getEnemies(),
-            getDistance: (enemy) => users[userIndex].towers[tower].getDistance(enemy),
-            shoot: (enemy) => {
-                users[userIndex].towers[tower].shoot(enemy, ticks);
-            },
-            canShoot: () => users[userIndex].towers[tower].towerCanShoot()
-        };
+        let user = users.get(socket.id);
+        if (user) {
+            const towerIndex = tower;
+            const allowedFunctions = {
+                getEnemies: () => user.towers[towerIndex].getEnemies(),
+                inRange: enemy => user.towers[towerIndex].inRange(enemy),
+                findFirst: () => user.towers[towerIndex].findFirst(),
+                canShoot: () => user.towers[towerIndex].canShoot(),
+                shoot: target => user.towers[towerIndex].shoot(target, ticks),
+            };
 
-        const prohibitedStatements = [
-            'fs', 'require', 'this', 'constructor', 'return', 'child_process', 'CharCode',
-            'eval', 'Function', 'global', 'Buffer', 'process', 'vm', 'setTimeout',
-            'setInterval', 'Reflect', 'Proxy', 'console', 'charCodes', 'code', 'Code', 'char', 'func', 'Func', 'function'
-        ];
+            const prohibitedKeywords = [
+                'String', 'fromCharCode', 'eval', 'Function', 'constructor', 'global', 'process',
+                'Buffer', 'require', 'setTimeout', 'setInterval', 'Reflect', 'Proxy', 'vm',
+                'child_process', 'console', 'this'
+            ];
 
-        try {
-            const preprocessProgram = (program) => {
-                let resolvedProgram = program.replace(/(['"`])\s*\+\s*\1/g, '');
-
-                let concatenationRegex = /(['"`])([^'"`]+?)\1\s*\+\s*(['"`])([^'"`]+?)\3/g;
-                while (concatenationRegex.test(resolvedProgram)) {
-                    resolvedProgram = resolvedProgram.replace(concatenationRegex, (_, q1, part1, q2, part2) => {
-                        if (q1 === q2) return `${part1}${part2}`;
-                        return _;
-                    });
-                }
-
-                resolvedProgram = resolvedProgram.replace(/\\u([\dA-Fa-f]{4})/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
-                resolvedProgram = resolvedProgram.replace(/\\x([\dA-Fa-f]{2})/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
-
-                // Detect and decode Base64 strings
-                const base64Regex = /Buffer\.from\(['"`]([A-Za-z0-9+/=]+)['"`],\s*['"`]base64['"`]\)\.toString\(\)/g;
-                resolvedProgram = resolvedProgram.replace(base64Regex, (_, encoded) => {
-                    try {
-                        return Buffer.from(encoded, 'base64').toString();
-                    } catch {
-                        return ''; // Ignore invalid Base64 strings
+            try {
+                // Check for prohibited keywords
+                for (const keyword of prohibitedKeywords) {
+                    if (program.includes(keyword)) {
+                        throw new Error(`Prohibited keyword detected: "${keyword}"`);
                     }
-                });
-
-                return resolvedProgram;
-            };
-
-            const normalizedProgram = preprocessProgram(program);
-
-            const detectExcessiveConcatenation = (ast) => {
-                let concatenationCount = 0;
-
-                walk.simple(ast, {
-                    AssignmentExpression(node) {
-                        if (
-                            node.operator === '+=' &&
-                            node.left.type === 'Identifier' &&
-                            node.right.type === 'Literal' &&
-                            typeof node.right.value === 'string'
-                        ) {
-                            concatenationCount++;
-                        }
-                    }
-                });
-
-                if (concatenationCount > 3) { // Threshold for excessive concatenation
-                    throw new Error('Excessive string concatenation detected');
                 }
-            };
 
-            const detectObfuscation = (program) => {
-                const unicodeEscapeRegex = /\\u[\dA-Fa-f]{4}/g;
-                const hexEscapeRegex = /\\x[\dA-Fa-f]{2}/g;
+                // Parse the program into an AST
+                const ast = acorn.parse(program, { ecmaVersion: 2020 });
 
-                if (unicodeEscapeRegex.test(program) || hexEscapeRegex.test(program)) {
-                    throw new Error('Obfuscation detected (escape sequences)');
-                }
-            };
-
-            const detectDynamicExecution = (ast) => {
-                let hasDynamicExecution = false;
-
-                walk.simple(ast, {
-                    MemberExpression(node) {
-                        if (node.computed && node.property.type === 'Identifier') {
-                            hasDynamicExecution = true;
-                        }
-                    },
-                    CallExpression(node) {
-                        if (node.callee.type === 'MemberExpression' && node.callee.computed) {
-                            hasDynamicExecution = true;
-                        }
-                    }
-                });
-
-                if (hasDynamicExecution) {
-                    throw new Error('Dynamic execution detected');
-                }
-            };
-
-            const validateProgram = (resolvedProgram, prohibitedStatements) => {
-                const ast = acorn.parse(resolvedProgram, { ecmaVersion: 2020 });
-
-                walk.simple(ast, {
+                // Walk through the AST to detect prohibited patterns
+                walkSimple(ast, {
                     WithStatement(node) {
                         throw new Error('Prohibited statement: "with" is not allowed.');
                     },
@@ -683,8 +833,8 @@ function connection(socket, io) {
                         throw new Error('Prohibited statement: Template literals are not allowed.');
                     },
                     Identifier(node) {
-                        if (node.name === 'CharCode') {
-                            throw new Error('Prohibited statement: Use of "CharCode" is not allowed.');
+                        if (prohibitedKeywords.includes(node.name)) {
+                            throw new Error(`Prohibited statement: Use of "${node.name}" is not allowed.`);
                         }
                     },
                     Literal(node) {
@@ -694,77 +844,55 @@ function connection(socket, io) {
                     }
                 });
 
-                // Additional checks for obfuscation
-                if (/fromCharCode/.test(resolvedProgram)) {
-                    throw new Error('Prohibited statement: Use of "fromCharCode" detected in obfuscated code.');
+                // Create a sandbox for execution
+                const sandbox = {
+                    ...allowedFunctions,
+                    tower: user.towers[tower],
+                    global: undefined,
+                    process: undefined,
+                    constructor: undefined,
+                    this: undefined,
+                    Function: undefined,
+                    eval: undefined,
+                    setTimeout: undefined,
+                    setInterval: undefined,
+                    Reflect: undefined,
+                    Proxy: undefined,
+                    Buffer: undefined,
+                    console: undefined,
+                    vm: undefined,
+                    require: undefined,
+                    child_process: undefined,
+                };
+
+                // // Execute the program in the sandbox
+                // const vm = require('vm');
+                // const script = new vm.Script(program);
+                // const context = vm.createContext(sandbox);
+                // script.runInContext(context, { timeout: 250 });
+
+                // Save the program to the tower
+                user.towers[tower].userCode = { program, sandbox };
+                console.log('Program executed successfully:', program);
+            } catch (error) {
+                if (error.message.includes('Script execution timed out')) {
+                    console.error('Error: Script execution timed out.');
+                    socket.emit('errorMessage', 'Your program took too long to execute.');
+                } else {
+                    console.error('Error executing user program:', error.message);
+                    socket.emit('errorMessage', `An error occurred: ${error.message}`);
                 }
-
-                if (/\\u[\dA-Fa-f]{4}|\\x[\dA-Fa-f]{2}/.test(resolvedProgram)) {
-                    throw new Error('Prohibited statement: Obfuscation detected (escape sequences).');
-                }
-
-                if (/\[\s*\]\[.*?\]/.test(resolvedProgram)) {
-                    throw new Error('Prohibited statement: Obfuscation detected (array indexing patterns).');
-                }
-
-                // Additional runtime checks can be added here if needed
-                detectDynamicExecution(ast);
-                detectObfuscation(resolvedProgram);
-                detectExcessiveConcatenation(ast);
-            };
-
-            validateProgram(normalizedProgram, prohibitedStatements);
-
-            const sandbox = {
-                ...allowedFunctions,
-                tower: users[userIndex].towers[tower],
-                global: undefined,
-                process: undefined,
-                constructor: undefined,
-                this: undefined,
-                Function: undefined,
-                eval: undefined,
-                setTimeout: undefined,
-                setInterval: undefined,
-                Reflect: undefined,
-                Proxy: undefined,
-                Buffer: undefined,
-                console: undefined,
-                vm: undefined,
-                require: undefined,
-                child_process: undefined,
-            };
-
-            console.log('Normalized Program:', normalizedProgram);
-            // let script = new vm.Script(program);
-            // let context = vm.createContext(sandbox);
-            // script.runInContext(context, { timeout: 250 });
-            users[userIndex].towers[tower].userCode = { program: program, sandbox: sandbox };
-            console.log('Program executed successfully.', program);
-        } catch (error) {
-            if (error.message.includes('Script execution timed out')) {
-                console.error('Error: Script execution timed out.');
-                socket.emit('errorMessage', 'Your program took too long to execute.');
-            } else {
-                console.error('Error executing user program:', error.message);
-                socket.emit('errorMessage', 'An error occurred while executing the program.');
             }
         }
     });
 
     socket.on('getTowerList', () => {
-        const towerTypes = [];
-        const towerSwitch = Tower.toString().match(/switch\s*\(presetTower\)\s*{([\s\S]*?)}/);
-        if (towerSwitch && towerSwitch[1]) {
-            const cases = towerSwitch[1].match(/case\s*'([^']+)'[\s\S]*?this\.price\s*=\s*(\d+)/g);
-            if (cases) {
-                cases.forEach(caseStatement => {
-                    const towerName = caseStatement.match(/case\s*'([^']+)'/)[1];
-                    const towerPrice = parseInt(caseStatement.match(/this\.price\s*=\s*(\d+)/)[1], 10);
-                    towerTypes.push({ name: towerName, price: towerPrice });
-                });
-            }
-        }
+        const towerTypes = [
+            { name: 'basic', price: 10, range: 4, damage: 2, fireRate: 2 },
+            { name: 'sniper', price: 20, range: 8, damage: 10, fireRate: 0.5 },
+            { name: 'machineGun', price: 15, range: 3, damage: 1, fireRate: 10 },
+            { name: 'slowTower', price: 15, range: 4, damage: 0, fireRate: 2 }
+        ];
         socket.emit('towerList', towerTypes);
     });
 
@@ -784,33 +912,80 @@ function connection(socket, io) {
         }
     })
 
+    socket.on('chooseUpgradePath', ({ towerIndex, path }) => {
+        let user = users.get(socket.id);
+        if (user) {
+            const tower = user.towers[towerIndex];
+            if (tower) {
+                tower.chooseUpgradePath(path);
+                socket.emit('upgradePathChosen', user.towers[towerIndex]);
+            }
+        }
+    });
+
+    socket.on('upgradeTower', (towerIndex) => {
+        let user = users.get(socket.id);
+        if (user) {
+            const tower = user.towers[towerIndex];
+            if (tower) {
+                tower.upgrade();
+                socket.emit('towerUpgraded', user.towers[towerIndex]);
+            }
+        }
+    });
+
+    socket.on('sellTower', (towerIndex) => {
+        let user = users.get(socket.id);
+        if (user) {
+            const tower = user.towers[towerIndex];
+            if (tower) {
+                user.money += tower.price;
+                user.towers.splice(towerIndex, 1);
+            }
+            user.towers.forEach((tower, index) => {
+                tower.index = index;
+            });
+        }
+    });
+
     socket.on('startWave', waveIndex => {
-        if (waveIndex || waveIndex === 0) {
+        let user = users.get(socket.id);
+        if (user && (waveIndex || waveIndex === 0)) {
             const waveCopy = JSON.parse(JSON.stringify(waves[waveIndex]));
-            users[userIndex].waveQueue.push({ wave: waveCopy, userIndex });
+            user.waveQueue.push({ wave: waveCopy, userId: socket.id });
         }
     });
 
     socket.on('sendWave', () => {
-        users[userIndex].currentWave++;
-        const waveCopy = JSON.parse(JSON.stringify(waves[users[userIndex].currentWave]));
-        users[userIndex].waveQueue.push({ wave: waveCopy, userIndex });
+        const user = users.get(userId);
+        if (user) {
+            if (user.gameOver || !user.gameIsRunning || user.currentWave >= waves.length - 1 || user.waveQueue.length > 0 || user.sectionQueue.length > 0 || user.enemies.length > 0) return;
+            user.currentWave++;
+            const waveCopy = JSON.parse(JSON.stringify(waves[user.currentWave]));
+            user.waveQueue.push({ wave: waveCopy, userId });
+        }
     })
 
-    socket.on('restartGame', restartWhere => {
-        users[userIndex].gameIsRunning = true
-        users[userIndex].gameOver = false
-        users[userIndex].enemies = []
-        users[userIndex].towers = []
-        users[userIndex].waveQueue = []
-        users[userIndex].sectionQueue = []
-        users[userIndex].health = 100
-        users[userIndex].money = 0
-        users[userIndex].currentWave = -1
-    })
+    socket.on('restartGame', () => {
+        let user = users.get(socket.id);
+        if (user) {
+            user.gameIsRunning = true;
+            user.gameOver = false;
+            user.enemies = [];
+            user.towers = [];
+            user.waveQueue = [];
+            user.sectionQueue = [];
+            user.health = 100;
+            user.money = 0;
+            user.currentWave = -1;
+        }
+    });
 
     socket.on('spawnEnemies', (enemyType, amount, spawnInterval, wait) => {
-        users[userIndex].sectionQueue.push({ section: { enemyType, amount, spawnInterval, wait }, userIndex, timeAfterLastSpawn: 0 });
+        let user = users.get(socket.id);
+        if (user) {
+            user.sectionQueue.push({ section: { enemyType, amount, spawnInterval, wait }, userId: socket.id, timeAfterLastSpawn: 0 });
+        }
     });
 
     socket.on('disconnect', () => {
@@ -818,82 +993,90 @@ function connection(socket, io) {
     });
 };
 
+// Create a global enemy pool with a pre-allocated size
+const enemyPool = new EnemyPool(2500);
 let gameLoop = setInterval(() => {
     ticks++;
-    users.forEach((user) => {
-        let userIndex = user.userIndex;
-        let socket = user.socket;
 
-        // Ensures that the user is still connected
-        if (userIndex != -1) {
-            if (!user.gameOver && user.gameIsRunning) {
-                // Handles the movement and status updates of each enemy
-                user.enemies.forEach((enemy) => {
-                    // enemy.updateStatuses(); // Update enemy statuses
-                    enemy.move(); // Move the enemy    
-                });
+    for (var [userId, userMap] of users) {
+        let user = userMap
 
-                // Handles the shooting and status updates of each tower
-                user.towers.forEach(tower => {
-                    // tower.updateStatuses(); // Update tower statuses
-                    tower.findTarget(ticks); // Find a target for the tower
-                    if (ticks - tower.lastShotTime >= 30) {
-                        tower.shootLocation = null;
-                    }
-                });
 
-                // Handles the wave queue and sends the sections of the wave to the section queue
-                if (user.waveQueue.length > 0) {
-                    if (users[userIndex].waveQueue[0].wave.length > 0) {
-                        const request = users[userIndex].waveQueue[0];
-                        let currentSection = request.wave[0];
-                        const currentTime = ticks;
-                        if (currentTime - ticks >= currentSection.wait) {
-                            users[userIndex].sectionQueue.push({ section: currentSection, userIndex, timeAfterLastSpawn: 0 });
-                            request.wave.splice(0, 1);
-                            if (request.wave.length > 0) {
-                                currentSection = request.wave[0];
-                            } else {
-                                users[userIndex].waveQueue.splice(0, 1);
-                            }
-                        } else {
-                            currentSection.wait -= 1;
-                        }
-                    } else {
-                        users[userIndex].waveQueue.splice(0, 1);
-                    }
-                }
+        if (user.gameOver || !user.gameIsRunning) continue;
 
-                // Handles the section queue and spawns enemies from the queue
-                if (user.sectionQueue.length > 0) {
-                    const request = users[userIndex].sectionQueue[0];
-                    let currentSection = request.section;
-                    if (request.timeAfterLastSpawn >= currentSection.spawnInterval) {
-                        new Enemy(currentSection.enemyType, userIndex, { healthBorder: true });
-                        request.timeAfterLastSpawn = 0;
-                        request.section.amount--;
-                        if (request.section.amount <= 0) {
-                            users[userIndex].sectionQueue.splice(0, 1);
-                        }
-                    } else {
-                        request.timeAfterLastSpawn++;
-                    }
-                }
+        // Cache user data
+        const { enemies, towers, waveQueue, sectionQueue } = user;
+
+        // Update enemies
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            enemies[i].move();
+        }
+
+        // Update towers
+        for (const tower of towers) {
+            tower.findTarget(ticks);
+            if (ticks - tower.lastShotTime >= 30) {
+                tower.shootLocation = null;
             }
         }
 
-        // Sends the game data to the client
-        socket.emit('gameData', {
-            gridData: { grid, rows, cols },
-            enemyData: user.enemies,
-            towerData: user.towers,
-            baseHealth: user.health,
-            money: user.money,
-            wave: user.currentWave,
-            gameOverStatus: user.gameOver,
-            gameRunningStatus: user.gameIsRunning
-        });
-    });
+        // Process wave queue
+        if (waveQueue.length > 0) {
+            const request = waveQueue[0];
+            const currentSection = request.wave[0];
+
+            if (currentSection.wait <= 0) {
+                sectionQueue.push({ section: currentSection, userId, timeAfterLastSpawn: 0 });
+                request.wave.shift();
+                if (request.wave.length === 0) waveQueue.shift();
+            } else {
+                currentSection.wait--;
+            }
+        }
+
+        // Process section queue
+        if (sectionQueue.length > 0) {
+            const request = sectionQueue[0];
+            const { section } = request;
+
+            if (request.timeAfterLastSpawn >= section.spawnInterval) {
+                const enemy = enemyPool.getEnemy(section.enemyType, userId, { healthBorder: true });
+                if (enemy) {
+                    request.timeAfterLastSpawn = 0;
+                    section.amount--;
+
+                    if (section.amount <= 0) sectionQueue.shift();
+                }
+            } else {
+                request.timeAfterLastSpawn++;
+            }
+        }
+
+        // Release enemies when they are defeated
+        for (let i = user.enemies.length - 1; i >= 0; i--) {
+            const enemy = user.enemies[i];
+            if (enemy.health <= 0) {
+                user.money += enemy.maxHealth; // Reward money for defeating the enemy
+                user.enemies.splice(i, 1); // Remove from active enemies
+                enemyPool.releaseEnemy(enemy); // Return the enemy to the pool
+            }
+        }
+
+        // Send minimal game data to the client
+        if (user) {
+            let socket = user.socket;
+            socket.emit('gameData', {
+                gridData: { grid, rows, cols },
+                enemyData: user.enemies,
+                towerData: user.towers,
+                health: user.health,
+                money: user.money,
+                wave: user.currentWave,
+                gameOverStatus: user.gameOver,
+                gameRunningStatus: user.gameIsRunning,
+            });
+        }
+    }
 }, 1000 / frameRate);
 
 module.exports = {

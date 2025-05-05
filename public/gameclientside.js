@@ -95,7 +95,10 @@ selectTower(20, 32);
 
 function drawTower(tower) {
     const { x, y, color, size } = tower;
-    s
+    ctx.fillStyle = color;
+    ctx.fillRect(x * spacing, y * spacing, spacing, spacing);
+    ctx.strokeStyle = 'black';
+    ctx.strokeRect(x * spacing, y * spacing, spacing, spacing);
     if (tower.shootLocation != null) {
         // Calculate the angle between the tower and the shoot location
         const dx = tower.shootLocation.x - tower.x;

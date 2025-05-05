@@ -14,10 +14,11 @@ var ticks = 0;
 // use the format of { enemyType: '<enemy name>', amount: #, spawnInterval: #, wait: # } inside of a list inside the waves list to make a section of a wave
 waves = [
     [
-        { enemyType: 'normal', amount: 3, spawnInterval: 60, wait: 0 }
+        { enemyType: 'sprinter', amount: 3, spawnInterval: 15, wait: 0 },
+        { enemyType: 'trickster', amount: 3, spawnInterval: 30, wait: 0 }
     ],
     [
-        { enemyType: 'normal', amount: 5, spawnInterval: 60, wait: 0 }
+        { enemyType: 'pop-up', amount: 5, spawnInterval: 60, wait: 0 }
     ],
     [
         { enemyType: 'normal', amount: 5, spawnInterval: 60, wait: 0 },
@@ -72,6 +73,8 @@ class Enemy {
         this.healthBorder = options.healthBorder || false;
         this.distanceFromStart = 0;
         this.statuses = []; // Array to store active statuses
+        this.size = 32;
+        this.hidden = 0;
 
         // Initialize original stats and effective stats
         this.updateStats();
@@ -118,29 +121,54 @@ class Enemy {
                 this.maxHealth = this.health;
                 this.speed = 40;
                 this.color = 'white';
-                this.size = 45;
                 break;
             case 'fast':
                 this.health = 5;
                 this.maxHealth = 5;
                 this.speed = 60;
                 this.color = 'dodgerblue';
-                this.size = 45;
                 break;
             case 'slow':
                 this.health = 20;
                 this.maxHealth = 20;
                 this.speed = 30;
                 this.color = 'green';
-                this.size = 45;
+                this.add
                 break;
             case 'boss':
                 this.health = 100;
                 this.maxHealth = 100;
                 this.speed = 10;
                 this.color = 'white';
-                this.size = 55;
                 break;
+            case 'camo':
+                this.health = 50;
+                this.maxHealth = 100;
+                this.speed = 30;
+                this.color = 'purple';
+                break;
+            case 'pop-up':
+                this.health = 50;
+                this.maxHealth = 100;
+                this.speed = 30;
+                this.color = 'red';
+                this.size = 24;
+                break;
+            case 'sprinter':
+                this.health = 50;
+                this.maxHealth = 100;
+                this.speed = 25;
+                this.color = 'pink';
+                this.addStatus(boostStatus, 180, 4);
+                break;
+            case 'trickster':
+                this.health = 50;
+                this.maxHealth = 100;
+                this.speed = 70;
+                this.color = 'orange';
+                this.addStatus(slowStatus, 180, 4);
+                break;
+
         }
 
         this.updateHealthBorder();
@@ -297,21 +325,21 @@ class Tower {
 
     findTarget(ticks) {
         this.updateStatuses(); // Update statuses before finding a target
-    
+
         this.currentTime = ticks;
-    
+
         this.getEnemies = () => {
             return users[this.userIndex].enemies;
         };
-    
+
         this.getDistance = (enemy) => {
             return Math.sqrt(Math.pow(enemy.x - this.x, 2) + Math.pow(enemy.y - this.y, 2));
         };
-    
+
         this.getDistanceFromStart = (enemy) => {
             return enemy.distanceFromStart;
         };
-    
+
         this.towerCanShoot = () => {
             if (this.currentTime - this.lastShotTime >= (frameRate / this.effectiveStats.fireRate)) {
                 return true;
@@ -319,28 +347,28 @@ class Tower {
                 return false;
             }
         };
-    
+
         if (this.userCode && !this.scriptIsRunning) {
             this.scriptIsRunning = true;
-    
+
             let script = new vm.Script(this.userCode.program);
             let context = vm.createContext(this.userCode.sandbox);
-    
+
             try {
                 const sanitizeData = (data, seen = new WeakSet()) => {
                     if (typeof data !== 'object' || data === null) {
                         return data;
                     }
-    
+
                     if (seen.has(data)) {
                         return; // Prevent infinite recursion
                     }
                     seen.add(data);
-    
+
                     if (Array.isArray(data)) {
                         return data.map(item => sanitizeData(item, seen));
                     }
-    
+
                     const sanitized = {};
                     for (const key in data) {
                         try {
@@ -355,9 +383,9 @@ class Tower {
                     }
                     return sanitized;
                 };
-    
+
                 this.userCode.sandbox = sanitizeData(this.userCode.sandbox);
-    
+
                 script.runInContext(context, { timeout: 50 }); // Increased timeout to 50ms
             } catch (err) {
                 console.error('Error running script:', err);

@@ -14,10 +14,11 @@ var ticks = 0;
 // use the format of { enemyType: '<enemy name>', amount: #, spawnInterval: #, wait: # } inside of a list inside the waves list to make a section of a wave
 waves = [
     [
-        { enemyType: 'normal', amount: 3, spawnInterval: 60, wait: 0 }
+        { enemyType: 'sprinter', amount: 3, spawnInterval: 15, wait: 0 },
+        { enemyType: 'trickster', amount: 3, spawnInterval: 30, wait: 0 }
     ],
     [
-        { enemyType: 'normal', amount: 5, spawnInterval: 60, wait: 0 }
+        { enemyType: 'pop-up', amount: 5, spawnInterval: 60, wait: 0 }
     ],
     [
         { enemyType: 'normal', amount: 5, spawnInterval: 60, wait: 0 },
@@ -195,6 +196,34 @@ class Enemy {
                 this.speed = 10;
                 this.color = 'white';
                 break;
+            case 'camo':
+                this.health = 50;
+                this.maxHealth = 100;
+                this.speed = 30;
+                this.color = 'purple';
+                break;
+            case 'pop-up':
+                this.health = 50;
+                this.maxHealth = 100;
+                this.speed = 30;
+                this.color = 'red';
+                this.size = 24;
+                break;
+            case 'sprinter':
+                this.health = 50;
+                this.maxHealth = 100;
+                this.speed = 25;
+                this.color = 'pink';
+                this.addStatus(boostStatus, 180, 4);
+                break;
+            case 'trickster':
+                this.health = 50;
+                this.maxHealth = 100;
+                this.speed = 70;
+                this.color = 'orange';
+                this.addStatus(slowStatus, 180, 4);
+                break;
+
         }
 
         this.updateHealthBorder();

@@ -11,6 +11,19 @@ var towerShop = document.getElementById("gameMenu");
 var towerList = [];
 let previewTower = null; // To store the current preview tower position
 
+const enemyCamoImage = new Image();
+enemyCamoImage.src = '/images/enemySprites/camoEnemy.png'; // Path to the image in the images folder
+
+const enemyPopupImage = new Image();
+enemyPopupImage.src = '/images/enemySprites/smalltest.png'; // Path to the image in the images folder
+
+// Load the health icon image
+const healthIcon = new Image();
+healthIcon.src = 'images/userInterfaceImages/lives.gif';
+healthIcon.onload = () => {
+    healthIcon.loaded = true;
+}
+
 socket.emit('getTowerList');
 socket.on('towerList', (data) => {
     getShopItems(data);
@@ -37,11 +50,34 @@ function drawGrid(grid, rows, cols) {
 
 function drawEnemy(enemy) {
     const { x, y, color, size } = enemy;
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(x * spacing + spacing / 2, y * spacing + spacing / 2, size / 2, 0, 2 * Math.PI);
-    ctx.fill();
-}
+
+    if (enemy.enemyType == 'camo') {
+        
+        if (enemyCamoImage.complete) {
+            ctx.drawImage(enemyCamoImage, x * spacing, y * spacing, size, size);
+        } else {
+            // Fallback in case the image hasn't loaded yet
+            enemyCamoImage.onload = () => {
+                ctx.drawImage(enemyCamoImage, x * spacing, y * spacing, size, size);
+            };
+        }
+    } else if (enemy.enemyType == 'pop-up') {
+        if (enemyPopupImage.complete) {
+            ctx.drawImage(enemyPopupImage, x * spacing, y * spacing, size, size);
+        } else {
+            // Fallback in case the image hasn't loaded yet
+            enemyPopupImage.onload = () => {
+                ctx.drawImage(enemyPopupImage, x * spacing, y * spacing, size, size);
+            };
+        }
+    } else {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x * spacing + spacing / 2, y * spacing + spacing / 2, size / 2, 0, 2 * Math.PI);
+        ctx.fill();
+    }
+    
+};
 
 function selectTower(rows, cols) {
     const selectHandler = (event) => {
@@ -59,10 +95,7 @@ selectTower(20, 32);
 
 function drawTower(tower) {
     const { x, y, color, size } = tower;
-    ctx.fillStyle = color;
-    ctx.fillRect(x * spacing, y * spacing, spacing, spacing);
-    ctx.strokeStyle = 'black';
-    ctx.strokeRect(x * spacing, y * spacing, spacing, spacing);
+    s
     if (tower.shootLocation != null) {
         // Calculate the angle between the tower and the shoot location
         const dx = tower.shootLocation.x - tower.x;
@@ -328,8 +361,13 @@ function drawGame(grid, rows, cols, enemies, towers, baseHealth, money, wave) {
     ctx.font = `${64 * ratio}px Arial`; // Scale font size using the canvas ratio
     ctx.textAlign = 'left';
 
-    // Display base health
-    ctx.fillText(`Health: ${baseHealth}`, 10, 20);
+    // Display the health icon
+    if (!healthIcon.loaded) {
+        ctx.drawImage(healthIcon, 10, 10, 50, 50);
+    }
+    // Display the base health value next to the image
+    ctx.fillText(`${baseHealth}`, 40, 25); // Adjust the position to align with the image
+
 
     // Display money
     ctx.fillText(`Bitpogs: ${money}`, 80, 20);

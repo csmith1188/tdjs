@@ -321,6 +321,20 @@ class EnemyPool {
             console.warn('Attempted to release an enemy that is not active.');
         }
     }
+
+    expand(amount) {
+        for (let i = 0; i < amount; i++) {
+            this.pool.push(new Enemy(null, null, {})); // Add new Enemy objects to the pool
+        }
+    }
+
+    shrink(amount) {
+        if (amount > this.pool.length) {
+            console.warn('Cannot shrink the pool by more than its current size.');
+            amount = this.pool.length; // Limit the shrink amount to the current pool size
+        }
+        this.pool.splice(0, amount); // Remove the specified number of enemies from the pool
+    }
 }
 
 //   TTTTTTT    OOOOO    WW   WW   EEEEE   RRRR     SSS 
@@ -607,7 +621,7 @@ class Tower {
                 this.y,
                 enemyInstance.x,
                 enemyInstance.y,
-                0.2, // Speed of the projectile
+                0.1, // Speed of the projectile
                 this.effectiveStats.damage, // Damage of the projectile
                 'normal', // Type of the projectile
                 'red', // Color of the projectile
@@ -639,7 +653,7 @@ class Projectile {
         this.projectileType = projectileType; // Type of projectile (e.g., 'normal', 'explosive')
         this.color = color; // Color of the projectile
         this.userId = userId; // User ID associated with the projectile
-        this.lifeTime = 100; // Lifetime in ticks
+        this.lifeTime = 6; // Lifetime in ticks
         this.directionX = null; // Direction vector for movement
         this.directionY = null; // Direction vector for movement
         this.noHitList = []; // List of enemies that the projectile has already hit
@@ -654,12 +668,14 @@ class Projectile {
         this.damage = 0;
         this.type = null; // Reset type to null
         this.color = null; // Reset color to null
-        this.userId = null; // Reset userId to null
-        this.lifeTime = 5; // Reset lifetime in ticks
         this.directionX = null; // Reset direction vector
         this.directionY = null; // Reset direction vector
         this.noHitList = []; // Reset noHitList
         this.pierce = undefined; // Reset pierce to null
+        this.size = 5; // Reset size to default
+        users.get(this.userId).projectiles.splice(users.get(this.userId).projectiles.indexOf(this), 1); // Remove from user's projectiles
+        projectilePool.pool.push(this);
+        projectilePool.activeProjectiles.delete(this); // Remove from active projectiles
     }
 
     move() {
@@ -685,32 +701,36 @@ class Projectile {
         // Check for collisions with enemies
         const user = users.get(this.userId);
         if (user) {
-            for (let i = user.enemies.length - 1; i >= 0; i--) {
-                const enemy = user.enemies[i];
-                const projectileRadius = 1;
+            if (this.lifeTime > 0) {
+                for (let i = user.enemies.length - 1; i >= 0; i--) {
+                    const enemy = user.enemies[i];
+                    const projectileRadius = 1;
 
-                const distanceToEnemy = Math.sqrt(
-                    Math.pow(enemy.x - this.x, 2) + Math.pow(enemy.y - this.y, 2)
-                );
+                    const distanceToEnemy = Math.sqrt(
+                        Math.pow(enemy.x - this.x, 2) + Math.pow(enemy.y - this.y, 2)
+                    );
 
-                if (distanceToEnemy <= projectileRadius) {
-                    if (!this.noHitList.includes(enemy)) {
-                        this.noHitList.push(enemy); // Add enemy to noHitList to prevent multiple hits
-                        // Deal damage to the enemy
-                        enemy.health -= this.damage;
-                        if (enemy.health <= 0) {
-                            user.money += enemy.maxHealth; // Reward money for defeating the enemy
-                            user.enemies.splice(i, 1); // Remove enemy from active list
-                            enemyPool.releaseEnemy(enemy); // Return enemy to the pool
-                        }
-                        // Handle piercing
-                        this.pierce--;
-                        if (this.pierce <= 0) {
-                            this.reset(); // Reset the projectile
-                            return; // Stop processing further collisions
+                    if (distanceToEnemy <= projectileRadius) {
+                        if (!this.noHitList.includes(enemy)) {
+                            this.noHitList.push(enemy); // Add enemy to noHitList to prevent multiple hits
+                            // Deal damage to the enemy
+                            enemy.health -= this.damage;
+                            if (enemy.health <= 0) {
+                                user.money += enemy.maxHealth; // Reward money for defeating the enemy
+                                user.enemies.splice(i, 1); // Remove enemy from active list
+                                enemyPool.releaseEnemy(enemy); // Return enemy to the pool
+                            }
+                            // Handle piercing
+                            this.pierce--;
+                            if (this.pierce <= 0) {
+                                this.reset(); // Reset the projectile
+                                return; // Stop processing further collisions
+                            }
                         }
                     }
                 }
+            } else {
+                this.reset(); // Reset the projectile if its lifetime is 0 or less
             }
         }
 
@@ -722,8 +742,6 @@ class Projectile {
         }
     }
 }
-
-// Chris was here
 
 class ProjectilePool {
     constructor(size) {
@@ -754,6 +772,20 @@ class ProjectilePool {
             console.warn('Projectile pool is empty! Consider increasing the pool size.');
             return null; // Return null instead of creating a new projectile
         }
+    }
+
+    expand(amount) {
+        for (let i = 0; i < amount; i++) {
+            this.pool.push(new Projectile(0, 0, 0, 0, 0, 0, '', '')); // Add new Projectile objects to the pool
+        }
+    }
+
+    shrink(amount) {
+        if (amount > this.pool.length) {
+            console.warn('Cannot shrink the pool by more than its current size.');
+            amount = this.pool.length; // Limit the shrink amount to the current pool size
+        }
+        this.pool.splice(0, amount); // Remove the specified number of projectiles from the pool
     }
 }
 
@@ -1167,15 +1199,47 @@ function connection(socket, io) {
     });
 };
 
-// Create a global enemy pool with a pre-allocated size
-const enemyPool = new EnemyPool(2500);
-const projectilePool = new ProjectilePool(1000);
+// Create global enemy and projectile pools
+let enemyPoolSize = 2500; // Initial size
+let projectilePoolSize = 1000; // Initial size
+const enemyPool = new EnemyPool(enemyPoolSize);
+const projectilePool = new ProjectilePool(projectilePoolSize);
+
+// Function to adjust pool sizes dynamically
+function adjustPoolSizes() {
+    const activeUsers = users.size; // Get the number of active users
+    const enemiesPerUser = 500; // Number of enemies per user
+    const projectilesPerUser = 500; // Number of projectiles per user
+
+    // Calculate new pool sizes
+    const newEnemyPoolSize = activeUsers * enemiesPerUser;
+    const newProjectilePoolSize = activeUsers * projectilesPerUser;
+
+    // Adjust enemy pool size
+    if (newEnemyPoolSize > enemyPoolSize) {
+        enemyPool.expand(newEnemyPoolSize - enemyPoolSize); // Add more enemies
+    } else if (newEnemyPoolSize < enemyPoolSize) {
+        enemyPool.shrink(enemyPoolSize - newEnemyPoolSize); // Remove excess enemies
+    }
+    enemyPoolSize = newEnemyPoolSize;
+
+    // Adjust projectile pool size
+    if (newProjectilePoolSize > projectilePoolSize) {
+        projectilePool.expand(newProjectilePoolSize - projectilePoolSize); // Add more projectiles
+    } else if (newProjectilePoolSize < projectilePoolSize) {
+        projectilePool.shrink(projectilePoolSize - newProjectilePoolSize); // Remove excess projectiles
+    }
+    projectilePoolSize = newProjectilePoolSize;
+}
+
 let gameLoop = setInterval(() => {
     ticks++;
 
+    adjustPoolSizes(); // Adjust pool sizes based on active users
+    console.log(`Active projectiles: ${projectilePool.activeProjectiles.size}`);
+
     for (var [userId, userMap] of users) {
         let user = userMap
-
 
         if (user.gameOver || !user.gameIsRunning) continue;
 

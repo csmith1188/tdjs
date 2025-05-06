@@ -139,6 +139,14 @@ function drawPreviewTower() {
     ctx.globalAlpha = 1; // Reset transparency
 }
 
+function drawProjectile(projectile) {
+    const { x, y, color, size } = projectile;
+    ctx.fillStyle = color; // Use the projectile's color
+    ctx.beginPath();
+    ctx.arc(x * spacing + spacing / 2, y * spacing + spacing / 2, size / 2, 0, 2 * Math.PI); // Draw a circle
+    ctx.fill();
+}
+
 function handleMouseMove(event) {
     if (!selectedBuyableTower) return;
 
@@ -152,7 +160,7 @@ function handleMouseMove(event) {
     previewTower = { x, y, name: selectedBuyableTower.name, range: selectedBuyableTower.range };
 
     // Redraw the game board to include the preview
-    drawGame(currentGrid, currentRows, currentCols, currentEnemies, currentTowers, currentBaseHealth, currentMoney, currentWave);
+    drawGame(currentGrid, currentRows, currentCols, currentEnemies, currentTowers, currentProjectiles, currentBaseHealth, currentMoney, currentWave);
 }
 
 function handleTowerPlacement(event) {
@@ -322,7 +330,7 @@ function adjustAspectRatio() {
 window.addEventListener('resize', () => { adjustAspectRatio(); resizeShopItems(); });
 window.addEventListener('load', adjustAspectRatio);
 
-function drawGame(grid, rows, cols, enemies, towers, baseHealth, money, wave) {
+function drawGame(grid, rows, cols, enemies, towers, projectiles, baseHealth, money, wave) {
     // Clear the canvas
     ctx.clearRect(0, 0, gameBoard.width, gameBoard.height);
 
@@ -348,6 +356,11 @@ function drawGame(grid, rows, cols, enemies, towers, baseHealth, money, wave) {
     // Draw all towers
     if (towers && Array.isArray(towers)) {
         towers.forEach(drawTower);
+    }
+
+    // Draw all projectiles
+    if (projectiles && Array.isArray(projectiles)) {
+        projectiles.forEach(drawProjectile);
     }
 
     // Draw all enemies
@@ -432,6 +445,7 @@ socket.on('gameData', (data) => {
     currentCols = data.gridData.cols;
     currentEnemies = data.enemyData;
     currentTowers = data.towerData;
+    currentProjectiles = data.projectileData;
     currentBaseHealth = data.health;
     currentMoney = data.money;
     currentWave = data.wave;
@@ -444,7 +458,7 @@ socket.on('gameData', (data) => {
 
     if (!gameOver && gameRunning) {
         document.getElementById('gameOverPage').style.display = 'none';
-        drawGame(currentGrid, currentRows, currentCols, currentEnemies, currentTowers, currentBaseHealth, currentMoney, currentWave);
+        drawGame(currentGrid, currentRows, currentCols, currentEnemies, currentTowers, currentProjectiles,currentBaseHealth, currentMoney, currentWave);
     } else {
         if (gameOver) {
             ctx.clearRect(0, 0, gameBoard.width, gameBoard.height);

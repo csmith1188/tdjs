@@ -2,6 +2,7 @@ const vm = require('vm')
 const acorn = require('acorn')
 const walk = require('acorn-walk');
 const { log } = require('console');
+const { name } = require('ejs');
 const frameRate = 60;
 const pathPoint = [{ y: 2, x: 0 }, { y: 2, x: 8 }, { y: 12, x: 8 }, { y: 12, x: 16 }, { y: 2, x: 16 }, { y: 2, x: 24 }, { y: 18, x: 24 }, { y: 18, x: 31 }];
 const pathPoint2 = [{ y: 2, x: 0 }, { y: 2, x: 25 }, { y: 6, x: 25 }, { y: 6, x: 8 }, { y: 10, x: 8 }, { y: 10, x: 16 }, { y: 14, x: 16 }, { y: 14, x: 24 }, { y: 18, x: 24 }, { y: 18, x: 31 }];
@@ -14,11 +15,11 @@ var ticks = 0;
 // use the format of { enemyType: '<enemy name>', amount: #, spawnInterval: #, wait: # } inside of a list inside the waves list to make a section of a wave
 waves = [
     [
-        { enemyType: 'sprinter', amount: 3, spawnInterval: 15, wait: 0 },
+        { enemyType: 'pop-up', amount: 3, spawnInterval: 15, wait: 0 },
         { enemyType: 'trickster', amount: 3, spawnInterval: 30, wait: 0 }
     ],
     [
-        { enemyType: 'pop-up', amount: 5, spawnInterval: 60, wait: 0 }
+        { enemyType: 'sprinter', amount: 5, spawnInterval: 60, wait: 0 }
     ],
     [
         { enemyType: 'normal', amount: 5, spawnInterval: 60, wait: 0 },
@@ -207,7 +208,6 @@ class Enemy {
                 this.maxHealth = 100;
                 this.speed = 30;
                 this.color = 'red';
-                this.size = 24;
                 break;
             case 'sprinter':
                 this.health = 50;
@@ -217,7 +217,7 @@ class Enemy {
                 this.addStatus(boostStatus, 180, 4);
                 break;
             case 'trickster':
-                this.health = 50;
+                this.health = 1;
                 this.maxHealth = 100;
                 this.speed = 70;
                 this.color = 'orange';
@@ -442,6 +442,27 @@ class Tower {
                     this.inflictStatuses.push(slowStatus);
                     this.price = 15;
                     break;
+
+                case 'poisonTower':
+                    this.size = 10;
+                    this.color = 'limegreen';
+                    this.range = 4;
+                    this.damage = 0;
+                    this.fireRate = 0.5;
+                    this.name = 'PoisonTower';
+                    this.inflictStatuses.push(poisonStatus);
+                    this.price = 20;
+                    break;
+                    // CANNON IS A WORK IN PROGRESS
+                case 'cannon':
+                    this.size = 10;
+                    this.color = 'black';
+                    this.range = 5;
+                    this.damage = 5;
+                    this.fireRate = 1;
+                    this.name = 'Cannon';
+                    this.price = 20;
+                    break;
             }
             this.shootLocation = null;
             this.damageCount = 0;
@@ -636,7 +657,7 @@ class Tower {
                 this.y,
                 enemyInstance.x,
                 enemyInstance.y,
-                0.1, // Speed of the projectile
+                .1, // Speed of the projectile
                 this.effectiveStats.damage, // Damage of the projectile
                 'normal', // Type of the projectile
                 'red', // Color of the projectile
@@ -1111,7 +1132,9 @@ function connection(socket, io) {
             { name: 'basic', price: 10, range: 4, damage: 2, fireRate: 2 },
             { name: 'sniper', price: 20, range: 8, damage: 10, fireRate: 0.5 },
             { name: 'machineGun', price: 15, range: 3, damage: 1, fireRate: 10 },
-            { name: 'slowTower', price: 15, range: 4, damage: 0, fireRate: 2 }
+            { name: 'slowTower', price: 15, range: 4, damage: 0, fireRate: 2 },
+            {name: 'cannon', price: 20, range: 5, damage: 5, fireRate: 1},
+            { name: 'poisonTower', price: 20, range: 4, damage: 0, fireRate: 5 }
         ];
         socket.emit('towerList', towerTypes);
     });
@@ -1250,6 +1273,8 @@ let gameLoop = setInterval(() => {
     ticks++;
 
     adjustPoolSizes(); // Adjust pool sizes based on active users
+   
+
     for (var [userId, userMap] of users) {
         let user = userMap
 

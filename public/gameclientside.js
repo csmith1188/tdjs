@@ -492,49 +492,52 @@ socket.on('towerSelected', (data) => {
         if (selectedTower == null) {
             selectedTower = data;
 
-            // Clear only the dynamic parts of the tower menu, leaving the programMenu intact
-            const dynamicMenu = document.getElementById('dynamicMenu');
-            if (dynamicMenu) {
-                dynamicMenu.remove(); // Remove the old dynamic content
-            }
+            // Update the tower overview
+            const towerName = document.getElementById('towerName');
+            towerName.innerText = `${selectedTower.name} Tower`;
 
-            // Create a container for dynamic content
-            const newDynamicMenu = document.createElement('div');
-            newDynamicMenu.id = 'dynamicMenu';
+            // Update the tower stats
+            const towerDamage = document.getElementById('towerDamage');
+            const towerRange = document.getElementById('towerRange');
+            const towerFireRate = document.getElementById('towerFireRate');
+            towerDamage.innerText = `Damage: ${selectedTower.damage}`;
+            towerRange.innerText = `Range: ${selectedTower.range}`;
+            towerFireRate.innerText = `Fire Rate: ${selectedTower.fireRate}`;
 
-            // Populate the tower menu with upgrade options
-            const towerInfo = document.createElement('div');
-            towerInfo.innerHTML = `
-            <h3>${selectedTower.name} Tower</h3>
-            <p>Range: ${selectedTower.range}</p>
-            <p>Damage: ${selectedTower.damage}</p>
-            <p>Fire Rate: ${selectedTower.fireRate}</p>
-        `;
-            newDynamicMenu.appendChild(towerInfo);
+            // Update the upgrade buttons
+            const upgradeName1 = document.getElementById('upgradeName1');
+            const upgradeName2 = document.getElementById('upgradeName2');
+            const upgradeName3 = document.getElementById('upgradeName3');
+            const upgradeName4 = document.getElementById('upgradeName4');
 
-            // Add buttons for choosing upgrade paths if no path is chosen
             if (selectedTower.upgradePath === null) {
-                const path1Button = document.createElement('button');
-                path1Button.innerText = 'Choose Path 1';
-                path1Button.onclick = () => chooseUpgradePath(selectedTower.index, 'path1');
-                newDynamicMenu.appendChild(path1Button);
+                // Update buttons for choosing upgrade paths
+                upgradeName1.style.display = 'block';
+                upgradeName1.innerText = 'Choose Path 1';
+                upgradeName1.onclick = () => chooseUpgradePath(selectedTower.index, 1);
 
-                const path2Button = document.createElement('button');
-                path2Button.innerText = 'Choose Path 2';
-                path2Button.onclick = () => chooseUpgradePath(selectedTower.index, 'path2');
-                newDynamicMenu.appendChild(path2Button);
+                upgradeName2.style.display = 'block';
+                upgradeName2.innerText = 'Choose Path 2';
+                upgradeName2.onclick = () => chooseUpgradePath(selectedTower.index, 2);
+
+                // Hide unused buttons
+                upgradeName3.style.display = 'none';
+                upgradeName4.style.display = 'none';
             } else {
-                // Add an upgrade button if a path is already chosen
-                const upgradeButton = document.createElement('button');
-                upgradeButton.innerText = `Upgrade (${selectedTower.price} Bitpogs)`;
-                upgradeButton.onclick = () => upgradeTower(selectedTower.index);
-                newDynamicMenu.appendChild(upgradeButton);
+                // Update an upgrade button if a path is already chosen
+                upgradeName1.style.display = 'block';
+                upgradeName1.innerText = `Upgrade (${selectedTower.price} Bitpogs)`;
+
+                upgradeName2.innerText = 'Upgrade Blocked';
+                upgradeName3.innerText = 'Upgrade Blocked';
+                upgradeName4.innerText = 'Upgrade Blocked';
             }
 
-            // Append the dynamic menu to the tower menu
-            towerMenu.appendChild(newDynamicMenu);
+            // Update the sell button
+            const sellButton = document.getElementById('sellButton');
+            sellButton.innerText = `Sell: ${selectedTower.price} Bitpogs`;
 
-            // Update the programMenu value
+            // Update the program menu
             if (selectedTower.userCode != null) {
                 programMenu.value = selectedTower.userCode.program;
             } else {
@@ -545,11 +548,13 @@ socket.on('towerSelected', (data) => {
             towerMenu.style.transition = 'transform 0.3s ease-in-out';
             towerMenu.style.transform = 'translate(0, 0)';
         } else {
+            // Deselect the tower
             selectedTower = null;
             towerMenu.style.transition = 'transform 0.3s ease-in-out';
             towerMenu.style.transform = 'translate(-100%, 0)';
         }
     } else {
+        // No tower selected, hide the menu
         selectedTower = null;
         towerMenu.style.transition = 'transform 0.3s ease-out';
         towerMenu.style.transform = 'translate(-100%, 0)';

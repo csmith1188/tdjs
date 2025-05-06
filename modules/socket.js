@@ -450,10 +450,12 @@ class Tower {
     }
 
     chooseUpgradePath(path) {
-        if (this.upgradePath === null) {
+        if (!this.upgradePath) {
+            // If no path is chosen yet, allow the user to choose this path
             this.upgradePath = path;
             console.log(`Upgrade path ${path} chosen.`);
-        } else {
+        } else if (this.upgradePath !== path) {
+            // If the user tries to choose a different path after the first choice
             console.log('Upgrade path already chosen and cannot be changed.');
         }
     }
@@ -461,19 +463,32 @@ class Tower {
     upgrade() {
         const user = users.get(this.userId);
         if (user) {
-            const maxUpgradeLevel = 2;
-            if (this.upgradePath === null) {
+            const primaryMaxUpgradeLevel = 3; // Maximum upgrade level for the primary path
+            const secondaryMaxUpgradeLevel = 2; // Maximum upgrade level for secondary paths
+    
+            if (!this.upgradePath) {
                 console.log('No upgrade path chosen. Please choose a path first.');
                 return;
             }
-
-            if (this.upgradeLevel < maxUpgradeLevel) {
+    
+            if (this.upgradeLevel < primaryMaxUpgradeLevel) {
                 const upgradeCost = this.price;
                 if (user.money >= upgradeCost) {
                     user.money -= upgradeCost;
                     this.upgradeLevel++;
                     this.updateStats(this.name.toLowerCase());
                     console.log(`Tower upgraded to level ${this.upgradeLevel} on path ${this.upgradePath}`);
+    
+                    // If the tower reaches tier 3, lock other paths to tier 2
+                    if (this.upgradeLevel === primaryMaxUpgradeLevel) {
+                        user.towers.forEach(tower => {
+                            if (tower !== this && tower.upgradeLevel > secondaryMaxUpgradeLevel) {
+                                tower.upgradeLevel = secondaryMaxUpgradeLevel;
+                                tower.updateStats(tower.name.toLowerCase());
+                                console.log(`Other paths limited to tier ${secondaryMaxUpgradeLevel}`);
+                            }
+                        });
+                    }
                 } else {
                     console.log('Not enough money to upgrade.');
                 }
@@ -679,7 +694,6 @@ class Projectile {
     }
 
     move() {
-        // Calculate direction vector only once
         if (!this.directionX && !this.directionY) {
             const dx = this.targetX - this.x;
             const dy = this.targetY - this.y;
@@ -1236,8 +1250,6 @@ let gameLoop = setInterval(() => {
     ticks++;
 
     adjustPoolSizes(); // Adjust pool sizes based on active users
-    console.log(`Active projectiles: ${projectilePool.activeProjectiles.size}`);
-
     for (var [userId, userMap] of users) {
         let user = userMap
 

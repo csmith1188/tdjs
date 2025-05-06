@@ -11,18 +11,34 @@ var towerShop = document.getElementById("gameMenu");
 var towerList = [];
 let previewTower = null; // To store the current preview tower position
 
+const enemySkeletonImage = new Image();
+enemySkeletonImage.src = '/images/enemySprites/skeletonEnemy.png'; // Path to the image in the images folder
+
 const enemyCamoImage = new Image();
 enemyCamoImage.src = '/images/enemySprites/camoEnemy.png'; // Path to the image in the images folder
 
 const enemyPopupImage = new Image();
-enemyPopupImage.src = '/images/enemySprites/smalltest.png'; // Path to the image in the images folder
+enemyPopupImage.src = '/images/enemySprites/popupEnemy.png'; // Path to the image in the images folder
 
 // Load the health icon image
 const healthIcon = new Image();
-healthIcon.src = 'images/userInterfaceImages/lives.gif';
+healthIcon.src = '/images/userInterfaceImages/livesIcon.png'; // Path to the image in the images folder
 healthIcon.onload = () => {
-    healthIcon.loaded = true;
+    healthIcon.loaded = false;
 }
+
+// Load the bitpog icon image
+const bitpogIcon = new Image();
+bitpogIcon.src = '/images/userInterfaceImages/bitpog.png'; // Path to the image in the images folder
+bitpogIcon.onload = () => {
+    bitpogIcon.loaded = false;
+}
+
+const settingsIcon = new Image();
+settingsIcon.src = '/images/userInterfaceImages/settingsIcon.png'; // Path to the image in the images folder
+settingsIcon.onload = () => {
+    settingsIcon.loaded = false;
+} 
 
 socket.emit('getTowerList');
 socket.on('towerList', (data) => {
@@ -62,12 +78,25 @@ function drawEnemy(enemy) {
             };
         }
     } else if (enemy.enemyType == 'pop-up') {
+        
         if (enemyPopupImage.complete) {
             ctx.drawImage(enemyPopupImage, x * spacing, y * spacing, size, size);
         } else {
             // Fallback in case the image hasn't loaded yet
             enemyPopupImage.onload = () => {
                 ctx.drawImage(enemyPopupImage, x * spacing, y * spacing, size, size);
+            };
+        }
+
+    } else if (enemy.enemyType == 'skeleton') {
+        
+        if (enemySkeletonImage.complete) {
+            ctx.drawImage(enemySkeletonImage, x * spacing, y * spacing, size, size);
+            
+        } else {
+            // Fallback in case the image hasn't loaded yet
+            enemySkeletonImage.onload = () => {
+                ctx.drawImage(enemySkeletonImage, x * spacing, y * spacing, size, size);
             };
         }
     } else {
@@ -379,14 +408,18 @@ function drawGame(grid, rows, cols, enemies, towers, projectiles, baseHealth, mo
 
     // Display the health icon
     if (!healthIcon.loaded) {
-        ctx.drawImage(healthIcon, 10, 10, 50, 50);
+        ctx.drawImage(healthIcon, 10, 6, 32, 32);
     }
     // Display the base health value next to the image
     ctx.fillText(`${baseHealth}`, 40, 25); // Adjust the position to align with the image
 
+    // Display money icon
+    if (!bitpogIcon.loaded) {
+        ctx.drawImage(bitpogIcon, 66, 10, 20, 20);
+    }
 
     // Display money
-    ctx.fillText(`Bitpogs: ${money}`, 80, 20);
+    ctx.fillText(`${money}`, 90, 25);
 
     // Display wave
     const waveLength = (parseInt(wave) + 1).toString().length;

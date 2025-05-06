@@ -11,6 +11,8 @@ var towerShop = document.getElementById("gameMenu");
 var towerList = [];
 let previewTower = null; // To store the current preview tower position
 
+const enemySkeletonImage = new Image();
+enemySkeletonImage.src = '/images/enemySprites/skeletonEnemy.png'; // Path to the image in the images folder
 
 const enemyCamoImage = new Image();
 enemyCamoImage.src = '/images/enemySprites/camoEnemy.png'; // Path to the image in the images folder
@@ -83,6 +85,18 @@ function drawEnemy(enemy) {
             // Fallback in case the image hasn't loaded yet
             enemyPopupImage.onload = () => {
                 ctx.drawImage(enemyPopupImage, x * spacing, y * spacing, size, size);
+            };
+        }
+
+    } else if (enemy.enemyType == 'skeleton') {
+        
+        if (enemySkeletonImage.complete) {
+            ctx.drawImage(enemySkeletonImage, x * spacing, y * spacing, size, size);
+            
+        } else {
+            // Fallback in case the image hasn't loaded yet
+            enemySkeletonImage.onload = () => {
+                ctx.drawImage(enemySkeletonImage, x * spacing, y * spacing, size, size);
             };
         }
     } else {

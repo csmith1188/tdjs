@@ -59,6 +59,69 @@ waves = [
 ];
 
 
+//all the upgrades avaliable for the towers
+const upgradePaths = {
+    basic: {
+        path1: [
+            { name: 'Extended Range', range: 4, damage: 0, fireRate: 0, price: 10 },
+            { name: 'Improved Damage', range: 1, damage: 1, fireRate: 0.5, price: 20 },
+            { name: 'Advanced Targeting', range: 1, damage: 1, fireRate: 0.5, price: 30 }
+        ],
+        path2: [
+            { name: 'High Impact', range: 0, damage: 3, fireRate: -0.5, price: 15 },
+            { name: 'Enhanced Power', range: 1, damage: 2, fireRate: 0, price: 25 },
+            { name: 'Devastating Force', range: 1, damage: 3, fireRate: 0.5, price: 40 }
+        ],
+        path3: [
+            { name: 'Rapid Fire', range: 0, damage: 0, fireRate: 3, price: 12 },
+            { name: 'Burst Fire', range: 1, damage: 1, fireRate: 1, price: 22 },
+            { name: 'Ultimate Machine Gun', range: 1, damage: 1, fireRate: 1, price: 35 }
+        ],
+        path4: [
+            { name: 'Slow Effect', range: 0, damage: 0, fireRate: 0, price: 15 },
+            { name: 'Freeze Effect', range: 1, damage: 0, fireRate: 0.5, price: 25 },
+            { name: 'Ultimate Freeze', range: 1, damage: 0, fireRate: 0.5, price: 40 }
+        ]
+    },
+    sniper: {
+        path1: [
+            { name: 'Precision Scope', range: 1, damage: 0, fireRate: 0, price: 20 },
+            { name: 'Long Range Shot', range: 1, damage: 5, fireRate: 0.1, price: 40 },
+            { name: 'Deadly Accuracy', range: 1, damage: 5, fireRate: 0.1, price: 60 }
+        ],
+        path2: [
+            { name: 'Rapid Fire', range: 0, damage: 2, fireRate: 0.3, price: 25 },
+            { name: 'Powerful Strike', range: 1, damage: 6, fireRate: 0.2, price: 50 },
+            { name: 'Ultimate Sniper', range: 1, damage: 7, fireRate: 0.2, price: 75 }
+        ]
+    },
+    machineGun: {
+        path1: [
+            { name: 'Extended Range', range: 2, damage: 0, fireRate: 0, price: 15 },
+            { name: 'Improved Damage', range: 1, damage: 2, fireRate: 0.5, price: 30 },
+            { name: 'Advanced Targeting', range: 1, damage: 3, fireRate: 0.5, price: 45 }
+        ],
+        path2: [
+            { name: 'High Impact', range: 0, damage: 4, fireRate: -0.5, price: 20 },
+            { name: 'Enhanced Power', range: 1, damage: 3, fireRate: 0, price: 35 },
+            { name: 'Devastating Force', range: 1, damage: 5, fireRate: 0.5, price: 55 }
+        ]
+    },
+    slowTower: {
+        path1: [
+            { name: 'Extended Range', range: 2, damage: 0, fireRate: 0, price: 15 },
+            { name: 'Improved Damage', range: 1, damage: 2, fireRate: 0.5, price: 30 },
+            { name: 'Advanced Targeting', range: 1, damage: 3, fireRate: 0.5, price: 45 }
+        ],
+        path2: [
+            { name: 'High Impact', range: 0, damage: 4, fireRate: -0.5, price: 20 },
+            { name: 'Enhanced Power', range: 1, damage: 3, fireRate: 0, price: 35 },
+            { name: 'Devastating Force', range: 1, damage: 5, fireRate: 0.5, price: 55 }
+        ]
+    }
+};
+
+
 // EEEEE   NN  NN   EEEEE   MM   MM   YY   YY
 // EE      NNN NN   EE      MMM MMM    YY YY
 // EEEEE   NNNNNN   EEEEE   MM M MM     YYY
@@ -352,7 +415,7 @@ class Tower {
         this.userCode = null;
         this.statuses = []; // Array to store active statuses
         this.inflictStatuses = [];
-        this.upgradePath = null; // No path chosen initially
+        this.upgradePath = [0, 0, 0, 0];
         this.upgradeLevel = 0; // Start at level 0
 
         // Initialize original stats and effective stats
@@ -369,123 +432,103 @@ class Tower {
     }
 
     updateStats(presetTower) {
-        const upgradePaths = {
-            basic: {
-                path1: [
-                    { name: 'Extended Range', range: 4, damage: 2, fireRate: 2, price: 10 },
-                    { name: 'Improved Damage', range: 5, damage: 3, fireRate: 2.5, price: 20 },
-                    { name: 'Advanced Targeting', range: 6, damage: 4, fireRate: 3, price: 30 }
-                ],
-                path2: [
-                    { name: 'High Impact', range: 3, damage: 5, fireRate: 1.5, price: 15 },
-                    { name: 'Enhanced Power', range: 4, damage: 7, fireRate: 2, price: 25 },
-                    { name: 'Devastating Force', range: 5, damage: 10, fireRate: 2.5, price: 40 }
-                ]
-            },
-            sniper: {
-                path1: [
-                    { name: 'Precision Scope', range: 8, damage: 10, fireRate: 0.5, price: 20 },
-                    { name: 'Long Range Shot', range: 9, damage: 15, fireRate: 0.6, price: 40 },
-                    { name: 'Deadly Accuracy', range: 10, damage: 20, fireRate: 0.7, price: 60 }
-                ],
-                path2: [
-                    { name: 'Rapid Fire', range: 7, damage: 12, fireRate: 0.8, price: 25 },
-                    { name: 'Powerful Strike', range: 8, damage: 18, fireRate: 1, price: 50 },
-                    { name: 'Ultimate Sniper', range: 9, damage: 25, fireRate: 1.2, price: 75 }
-                ]
-            }
-        };
+        // Start with default stats for the base tower
+        switch (presetTower) {
+            case 'basic':
+                this.size = 10;
+                this.color = 'lightblue';
+                this.range = 4;
+                this.damage = 2;
+                this.fireRate = 2;
+                this.name = 'basic';
+                this.price = 10;
+                break;
+            case 'sniper':
+                this.size = 10;
+                this.color = 'lightcoral';
+                this.range = 8;
+                this.damage = 10;
+                this.fireRate = 0.5;
+                this.name = 'sniper';
+                this.price = 20;
+                break;
+            case 'machineGun':
+                this.size = 10;
+                this.color = 'lightgreen';
+                this.range = 3;
+                this.damage = 1;
+                this.fireRate = 10;
+                this.name = 'machineGun';
+                this.price = 15;
+                break;
+            case 'slowTower':
+                this.size = 10;
+                this.color = 'lightyellow';
+                this.range = 4;
+                this.damage = 0;
+                this.fireRate = 2;
+                this.name = 'slowTower';
+                this.inflictStatuses.push(slowStatus);
+                this.price = 15;
+                break;
+        }
 
-        if (this.upgradePath) {
-            const stats = upgradePaths[presetTower][this.upgradePath][this.upgradeLevel];
-            this.range = stats.range;
-            this.damage = stats.damage;
-            this.fireRate = stats.fireRate;
-            this.price = stats.price;
+        // Apply upgrades from all active paths
+        for (let pathIndex = 0; pathIndex < upgradePaths.length; pathIndex++) {
+            const level = upgradePath[pathIndex];
+            if (level > 0) {
+                const pathArray = upgradePaths[presetTower][`path${pathIndex + 1}`];
+                for (let i = 0; i < level; i++) {
+                    const upgrade = pathArray[i];
+                    this.range += upgrade.range || 0;
+                    this.damage += upgrade.damage || 0;
+                    this.fireRate += upgrade.fireRate || 0;
+                    this.price += upgrade.price || 0;
+                }
+            }
+        }
+
+        this.shootLocation = null;
+        this.damageCount = 0;
+        this.lastShotTime = 0;
+    }
+
+    chooseUpgradePath(pathIndex) {
+        if (upgradePath[pathIndex] === 0) {
+            // If the path has not been chosen yet, allow the user to choose this path
+            console.log(`Upgrade path ${pathIndex + 1} chosen.`);
         } else {
-            // Default stats for the base tower
-            switch (presetTower) {
-                case 'basic':
-                    this.size = 10;
-                    this.color = 'lightblue';
-                    this.range = 4;
-                    this.damage = 2;
-                    this.fireRate = 2;
-                    this.name = 'Basic';
-                    this.price = 10;
-                    break;
-                case 'sniper':
-                    this.size = 10;
-                    this.color = 'lightcoral';
-                    this.range = 8;
-                    this.damage = 10;
-                    this.fireRate = 0.5;
-                    this.name = 'Sniper';
-                    this.price = 20;
-                    break;
-                case 'machineGun':
-                    this.size = 10;
-                    this.color = 'lightgreen';
-                    this.range = 3;
-                    this.damage = 1;
-                    this.fireRate = 10;
-                    this.name = 'MachineGun';
-                    this.price = 15;
-                    break;
-                case 'slowTower':
-                    this.size = 10;
-                    this.color = 'lightyellow';
-                    this.range = 4;
-                    this.damage = 0;
-                    this.fireRate = 2;
-                    this.name = 'SlowTower';
-                    this.inflictStatuses.push(slowStatus);
-                    this.price = 15;
-                    break;
-            }
-            this.shootLocation = null;
-            this.damageCount = 0;
-            this.lastShotTime = 0;
+            console.log(`Upgrade path ${pathIndex + 1} already in use.`);
         }
     }
-
-    chooseUpgradePath(path) {
-        if (!this.upgradePath) {
-            // If no path is chosen yet, allow the user to choose this path
-            this.upgradePath = path;
-            console.log(`Upgrade path ${path} chosen.`);
-        } else if (this.upgradePath !== path) {
-            // If the user tries to choose a different path after the first choice
-            console.log('Upgrade path already chosen and cannot be changed.');
-        }
-    }
-
-    upgrade() {
+    
+    upgrade(pathIndex) {
         const user = users.get(this.userId);
         if (user) {
             const primaryMaxUpgradeLevel = 3; // Maximum upgrade level for the primary path
             const secondaryMaxUpgradeLevel = 2; // Maximum upgrade level for secondary paths
     
-            if (!this.upgradePath) {
-                console.log('No upgrade path chosen. Please choose a path first.');
-                return;
+            if (upgradePath[pathIndex] === 0) {
+                // Automatically choose the path if it's the first upgrade
+                console.log(`Automatically choosing path ${pathIndex + 1}.`);
             }
     
-            if (this.upgradeLevel < primaryMaxUpgradeLevel) {
+            const currentLevel = upgradePath[pathIndex];
+            if (currentLevel < primaryMaxUpgradeLevel) {
                 const upgradeCost = this.price;
                 if (user.money >= upgradeCost) {
                     user.money -= upgradeCost;
+                    upgradePath[pathIndex]++;
                     this.upgradeLevel++;
                     this.updateStats(this.name.toLowerCase());
-                    console.log(`Tower upgraded to level ${this.upgradeLevel} on path ${this.upgradePath}`);
+                    console.log(`Tower upgraded to level ${upgradePath[pathIndex]} on path ${pathIndex + 1}`);
     
-                    // If the tower reaches tier 3, lock other paths to tier 2
-                    if (this.upgradeLevel === primaryMaxUpgradeLevel) {
-                        user.towers.forEach(tower => {
-                            if (tower !== this && tower.upgradeLevel > secondaryMaxUpgradeLevel) {
-                                tower.upgradeLevel = secondaryMaxUpgradeLevel;
-                                tower.updateStats(tower.name.toLowerCase());
-                                console.log(`Other paths limited to tier ${secondaryMaxUpgradeLevel}`);
+                    // If the tower reaches tier 3 on this path, lock other paths to tier 2
+                    if (upgradePath[pathIndex] === primaryMaxUpgradeLevel) {
+                        upgradePath.forEach((level, index) => {
+                            if (index !== pathIndex && level > secondaryMaxUpgradeLevel) {
+                                upgradePath[index] = secondaryMaxUpgradeLevel;
+                                console.log(`Path ${index + 1} limited to tier ${secondaryMaxUpgradeLevel}`);
                             }
                         });
                     }
@@ -493,7 +536,7 @@ class Tower {
                     console.log('Not enough money to upgrade.');
                 }
             } else {
-                console.log('Tower is already at max level for this path.');
+                console.log(`Path ${pathIndex + 1} is already at max level.`);
             }
         }
     }
@@ -640,7 +683,7 @@ class Tower {
                 this.effectiveStats.damage, // Damage of the projectile
                 'normal', // Type of the projectile
                 'red', // Color of the projectile
-                this.userId, // User ID associated with the projectile
+                this.userId // User ID associated with the projectile
             );
 
             if (projectile) {
@@ -668,26 +711,13 @@ class Projectile {
         this.projectileType = projectileType; // Type of projectile (e.g., 'normal', 'explosive')
         this.color = color; // Color of the projectile
         this.userId = userId; // User ID associated with the projectile
-        this.lifeTime = 6; // Lifetime in ticks
-        this.directionX = null; // Direction vector for movement
-        this.directionY = null; // Direction vector for movement
-        this.noHitList = []; // List of enemies that the projectile has already hit
+        this.lifeTime = 12; // Reset lifetime to default value
+        this.directionX = null; // Reset direction vector for movement
+        this.directionY = null; // Reset direction vector for movement
+        this.noHitList = []; // Reset the list of enemies that the projectile has already hit
     }
 
     reset() {
-        this.x = 0;
-        this.y = 0;
-        this.targetX = 0;
-        this.targetY = 0;
-        this.speed = 0;
-        this.damage = 0;
-        this.type = null; // Reset type to null
-        this.color = null; // Reset color to null
-        this.directionX = null; // Reset direction vector
-        this.directionY = null; // Reset direction vector
-        this.noHitList = []; // Reset noHitList
-        this.pierce = undefined; // Reset pierce to null
-        this.size = 5; // Reset size to default
         users.get(this.userId).projectiles.splice(users.get(this.userId).projectiles.indexOf(this), 1); // Remove from user's projectiles
         projectilePool.pool.push(this);
         projectilePool.activeProjectiles.delete(this); // Remove from active projectiles
@@ -781,6 +811,7 @@ class ProjectilePool {
             projectile.userId = userId;
             projectile.pierce = pierce || 5; // Default pierce if not provided
             this.activeProjectiles.add(projectile); // Track the active projectile
+            projectile.initialize(x, y, targetX, targetY, speed, damage, type, color, userId, 5); // Reinitialize the projectile
             return projectile;
         } else {
             console.warn('Projectile pool is empty! Consider increasing the pool size.');
@@ -951,8 +982,13 @@ function connection(socket, io) {
             let x = Math.floor(placementInformation.x);
             let y = Math.floor(placementInformation.y);
             if (!grid[y][x].hasPath && !user.towers.find(tower => tower.x === x && tower.y === y)) {
-                user.towers.push(new Tower(placementInformation.tower, socket.id, {}, y, x));
-                socket.emit('towerSelected', user.towers[user.towers.length - 1]);
+                user.towers.push(new Tower(placementInformation.tower, user.id, {}, y, x));
+                console.log(upgradePaths[user.towers[user.towers.length - 1].name]);
+                
+                socket.emit('towerSelected',
+                    user.towers[user.towers.length - 1],
+                    upgradePaths[user.towers[user.towers.length - 1].name]
+                );
             }
         }
     });
@@ -963,7 +999,7 @@ function connection(socket, io) {
             let x = towerSelect.x;
             let y = towerSelect.y;
             const tower = user.towers.find(tower => tower.x === x && tower.y === y);
-            socket.emit('towerSelected', tower || null);
+            socket.emit('towerSelected', tower || null, );
         }
     });
 
@@ -1132,24 +1168,64 @@ function connection(socket, io) {
         }
     })
 
-    socket.on('chooseUpgradePath', ({ towerIndex, path }) => {
+    socket.on('upgradeTower', ({ towerIndex, pathIndex }) => {
         let user = users.get(socket.id);
         if (user) {
             const tower = user.towers[towerIndex];
             if (tower) {
-                tower.chooseUpgradePath(path);
-                socket.emit('upgradePathChosen', user.towers[towerIndex]);
-            }
-        }
-    });
+                const primaryMaxUpgradeLevel = 3; // Maximum level for the primary path
+                const secondaryMaxUpgradeLevel = 2; // Maximum level for secondary paths
 
-    socket.on('upgradeTower', (towerIndex) => {
-        let user = users.get(socket.id);
-        if (user) {
-            const tower = user.towers[towerIndex];
-            if (tower) {
-                tower.upgrade();
-                socket.emit('towerUpgraded', user.towers[towerIndex]);
+                // Check if any path has already reached tier 3
+                const hasTier3Upgrade = upgradePath.some(level => level === primaryMaxUpgradeLevel);
+
+                // Check if two paths have already been picked
+                const pickedPaths = upgradePath.filter(level => level > 0).length;
+                if (pickedPaths >= 2 && upgradePath[pathIndex] === 0) {
+                    socket.emit('errorMessage', `Path ${pathIndex + 1} is not available because two paths have already been picked.`);
+                    return;
+                }
+
+                // If trying to upgrade a path to tier 2 while another path is at tier 3
+                if (hasTier3Upgrade && upgradePath[pathIndex] >= secondaryMaxUpgradeLevel) {
+                    socket.emit('errorMessage', `Max upgrade reached for path ${pathIndex + 1}.`);
+                    return;
+                }
+
+                // Automatically assign the path if it's the first upgrade
+                if (upgradePath[pathIndex] === 0) {
+                    console.log(`Automatically choosing path ${pathIndex + 1} for tower ${towerIndex}.`);
+                }
+
+                const currentLevel = upgradePath[pathIndex];
+                if (currentLevel < primaryMaxUpgradeLevel) {
+                    const upgradeCost = tower.price;
+                    if (user.money >= upgradeCost) {
+                        user.money -= upgradeCost;
+                        upgradePath[pathIndex]++;
+                        tower.upgradeLevel++;
+                        tower.updateStats(tower.name.toLowerCase());
+                        console.log(`Tower upgraded to level ${upgradePath[pathIndex]} on path ${pathIndex + 1}`);
+
+                        // If the tower reaches tier 3 on this path, lock all other paths to tier 2
+                        if (upgradePath[pathIndex] === primaryMaxUpgradeLevel) {
+                            upgradePath.forEach((level, index) => {
+                                if (index !== pathIndex && level > secondaryMaxUpgradeLevel) {
+                                    upgradePath[index] = secondaryMaxUpgradeLevel;
+                                    console.log(`Path ${index + 1} limited to tier ${secondaryMaxUpgradeLevel}`);
+                                }
+                            });
+                        }
+
+                        console.log(upgradePath);
+                        
+                        socket.emit('towerUpgraded', tower);
+                    } else {
+                        socket.emit('errorMessage', 'Not enough money to upgrade.');
+                    }
+                } else {
+                    socket.emit('errorMessage', `Path ${pathIndex + 1} is already at max level.`);
+                }
             }
         }
     });
@@ -1273,12 +1349,13 @@ let gameLoop = setInterval(() => {
 
         // Update projectiles
         for (let i = user.projectiles.length - 1; i >= 0; i--) {
-            const projectile = user.projectiles[i];
-            projectile.move();
-            if (projectile.lifeTime <= 0) {
-                projectile.reset();
-                user.projectiles.splice(i, 1); // Remove expired projectiles
-                projectilePool.pool.push(projectile); // Return to the pool
+            let projectile = user.projectiles[i];
+            if (projectile) {
+                if (projectile.lifeTime > 0) {
+                    projectile.move();
+                } else {
+                    projectile.reset();
+                }
             }
         }
 

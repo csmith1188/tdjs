@@ -454,8 +454,8 @@ function chooseUpgradePath(towerIndex, path) {
     socket.emit('chooseUpgradePath', { towerIndex, path });
 }
 
-function upgradeTower(towerIndex) {
-    socket.emit('upgradeTower', towerIndex);
+function upgradeTower(towerIndex, pathIndex) {
+    socket.emit('upgradeTower', { towerIndex, pathIndex });
 }
 
 function sellTower() {
@@ -491,7 +491,7 @@ socket.on('gameData', (data) => {
 
     if (!gameOver && gameRunning) {
         document.getElementById('gameOverPage').style.display = 'none';
-        drawGame(currentGrid, currentRows, currentCols, currentEnemies, currentTowers, currentProjectiles,currentBaseHealth, currentMoney, currentWave);
+        drawGame(currentGrid, currentRows, currentCols, currentEnemies, currentTowers, currentProjectiles, currentBaseHealth, currentMoney, currentWave);
     } else {
         if (gameOver) {
             ctx.clearRect(0, 0, gameBoard.width, gameBoard.height);
@@ -513,16 +513,94 @@ socket.on('gameData', (data) => {
     }
 });
 
-socket.on('updateTowerMenu', (data) => {
-
-})
-
-socket.on('towerSelected', (data) => {
-    var towerMenu = document.getElementById('towerMenu');
-    var programMenu = document.getElementById('programBox');
+socket.on('towerSelected', (data, upgrades) => {
+    const towerMenu = document.getElementById('towerMenu');
+    const programMenu = document.getElementById('programBox');
 
     if (data != null) {
         if (selectedTower == null) {
+            selectedTower = data;
+            upgradePaths = upgrades;
+
+            // Update the tower overview
+            const towerName = document.getElementById('towerName');
+            towerName.innerText = `${selectedTower.name} Tower`;
+
+            // Update the tower stats
+            const towerDamage = document.getElementById('towerDamage');
+            const towerRange = document.getElementById('towerRange');
+            const towerFireRate = document.getElementById('towerFireRate');
+            towerDamage.innerText = `Damage: ${selectedTower.damage}`;
+            towerRange.innerText = `Range: ${selectedTower.range}`;
+            towerFireRate.innerText = `Fire Rate: ${selectedTower.fireRate}`;
+
+            // Update the upgrade buttons directly
+            const primaryMaxUpgradeLevel = 3; // Maximum level for the primary path
+            const secondaryMaxUpgradeLevel = 2; // Maximum level for secondary paths
+
+            // Count the number of paths already picked
+            const pickedPaths = selectedTower.upgradePath.filter(level => level > 0).length;
+
+            // Check if any path has reached the primary max upgrade level
+            const hasPrimaryMaxUpgrade = selectedTower.upgradePath.some(level => level >= primaryMaxUpgradeLevel);
+
+            // Helper function to update upgrade buttons
+            const updateUpgradeButton = (pathIndex, upgradeNameId, upgradeButtonId) => {
+                const upgradeName = document.getElementById(upgradeNameId);
+                const upgradeButton = document.getElementById(upgradeButtonId);
+
+                if (selectedTower.upgradePath[pathIndex] >= primaryMaxUpgradeLevel) {
+                    // If the path has reached the primary max upgrade level
+                    upgradeName.innerText = 'Max Upgrade Reached';
+                    upgradeButton.onclick = null;
+                    upgradeName.style.display = 'block';
+                } else if (pickedPaths >= 2 && selectedTower.upgradePath[pathIndex] === 0) {
+                    upgradeName.innerText = 'Upgrade Unavailable';
+                    upgradeButton.onclick = null;
+                    upgradeName.style.display = 'block';
+                } else if (selectedTower.upgradePath[pathIndex] >= secondaryMaxUpgradeLevel && hasPrimaryMaxUpgrade) {
+                    // If the path has reached the secondary max upgrade level and one path is at primary max
+                    upgradeName.innerText = 'Max Upgrade Reached (Secondary)';
+                    upgradeButton.onclick = null;
+                    upgradeName.style.display = 'block';
+                } else {
+                    // Otherwise, display the upgrade cost and enable the button
+                    upgradeName.innerText = `${upgradePaths[pathIndex].name} (${upgradePaths[pathIndex].price} Bitpogs)`;
+                    upgradeButton.onclick = () => upgradeTower(selectedTower.index, pathIndex);
+                    upgradeName.style.display = 'block';
+                }
+            };
+
+            // Update each upgrade path
+            updateUpgradeButton(0, 'upgradeName1', 'upgradeButton1');
+            updateUpgradeButton(1, 'upgradeName2', 'upgradeButton2');
+            updateUpgradeButton(2, 'upgradeName3', 'upgradeButton3');
+            updateUpgradeButton(3, 'upgradeName4', 'upgradeButton4');
+
+            // Update the program menu
+            if (selectedTower.userCode != null) {
+                programMenu.value = selectedTower.userCode.program;
+            } else {
+                programMenu.value = '';
+            }
+
+            // Show the tower menu
+            towerMenu.style.transition = 'transform 0.3s ease-in';
+            towerMenu.style.transform = 'translate(0, 0)';
+        }
+    } else {
+        // No tower selected, hide the menu
+        selectedTower = null;
+        towerMenu.style.transition = 'transform 0.3s ease-out';
+        towerMenu.style.transform = 'translate(-100%, 0)';
+    }
+});
+
+socket.on('towerUpgraded', (data) => {
+    const programMenu = document.getElementById('programBox');
+
+    if (data != null) {
+        if (selectedTower != null) {
             selectedTower = data;
 
             // Update the tower overview
@@ -537,38 +615,47 @@ socket.on('towerSelected', (data) => {
             towerRange.innerText = `Range: ${selectedTower.range}`;
             towerFireRate.innerText = `Fire Rate: ${selectedTower.fireRate}`;
 
-            // Update the upgrade buttons
-            const upgradeName1 = document.getElementById('upgradeName1');
-            const upgradeName2 = document.getElementById('upgradeName2');
-            const upgradeName3 = document.getElementById('upgradeName3');
-            const upgradeName4 = document.getElementById('upgradeName4');
+            // Update the upgrade buttons directly
+            const primaryMaxUpgradeLevel = 3; // Maximum level for the primary path
+            const secondaryMaxUpgradeLevel = 2; // Maximum level for secondary paths
 
-            if (selectedTower.upgradePath === null) {
-                // Update buttons for choosing upgrade paths
-                upgradeName1.style.display = 'block';
-                upgradeName1.innerText = 'Choose Path 1';
-                upgradeName1.onclick = () => chooseUpgradePath(selectedTower.index, 1);
+            // Count the number of paths already picked
+            const pickedPaths = selectedTower.upgradePath.filter(level => level > 0).length;
 
-                upgradeName2.style.display = 'block';
-                upgradeName2.innerText = 'Choose Path 2';
-                upgradeName2.onclick = () => chooseUpgradePath(selectedTower.index, 2);
+            const hasPrimaryMaxUpgrade = selectedTower.upgradePath.some(level => level >= primaryMaxUpgradeLevel);
 
-                // Hide unused buttons
-                upgradeName3.style.display = 'none';
-                upgradeName4.style.display = 'none';
-            } else {
-                // Update an upgrade button if a path is already chosen
-                upgradeName1.style.display = 'block';
-                upgradeName1.innerText = `Upgrade (${selectedTower.price} Bitpogs)`;
+            // Helper function to update upgrade buttons
+            const updateUpgradeButton = (pathIndex, upgradeNameId, upgradeButtonId) => {
+                const upgradeName = document.getElementById(upgradeNameId);
+                const upgradeButton = document.getElementById(upgradeButtonId);
 
-                upgradeName2.innerText = 'Upgrade Blocked';
-                upgradeName3.innerText = 'Upgrade Blocked';
-                upgradeName4.innerText = 'Upgrade Blocked';
-            }
+                if (selectedTower.upgradePath[pathIndex] >= primaryMaxUpgradeLevel) {
+                    // If the path has reached the primary max upgrade level
+                    upgradeName.innerText = 'Max Upgrade Reached';
+                    upgradeButton.onclick = null;
+                    upgradeName.style.display = 'block';
+                } else if (pickedPaths >= 2 && selectedTower.upgradePath[pathIndex] === 0) {
+                    upgradeName.innerText = 'Upgrade Unavailable';
+                    upgradeButton.onclick = null;
+                    upgradeName.style.display = 'block';
+                } else if (selectedTower.upgradePath[pathIndex] >= secondaryMaxUpgradeLevel && hasPrimaryMaxUpgrade) {
+                    // If the path has reached the secondary max upgrade level and one path is at primary max
+                    upgradeName.innerText = 'Max Upgrade Reached (Secondary)';
+                    upgradeButton.onclick = null;
+                    upgradeName.style.display = 'block';
+                } else {
+                    // Otherwise, display the upgrade cost and enable the button
+                    upgradeName.innerText = `Upgrade Path ${pathIndex + 1} (${selectedTower.price} Bitpogs)`;
+                    upgradeButton.onclick = () => upgradeTower(selectedTower.index, pathIndex);
+                    upgradeName.style.display = 'block';
+                }
+            };
 
-            // Update the sell button
-            const sellButton = document.getElementById('sellButton');
-            sellButton.innerText = `Sell: ${selectedTower.price} Bitpogs`;
+            // Update each upgrade path
+            updateUpgradeButton(0, 'upgradeName1', 'upgradeButton1');
+            updateUpgradeButton(1, 'upgradeName2', 'upgradeButton2');
+            updateUpgradeButton(2, 'upgradeName3', 'upgradeButton3');
+            updateUpgradeButton(3, 'upgradeName4', 'upgradeButton4');
 
             // Update the program menu
             if (selectedTower.userCode != null) {
@@ -578,85 +665,18 @@ socket.on('towerSelected', (data) => {
             }
 
             // Show the tower menu
-            towerMenu.style.transition = 'transform 0.3s ease-in-out';
+            const towerMenu = document.getElementById('towerMenu');
+            towerMenu.style.transition = 'transform 0.3s ease-in';
             towerMenu.style.transform = 'translate(0, 0)';
-        } else {
-            // Deselect the tower
-            selectedTower = null;
-            towerMenu.style.transition = 'transform 0.3s ease-in-out';
-            towerMenu.style.transform = 'translate(-100%, 0)';
         }
     } else {
         // No tower selected, hide the menu
         selectedTower = null;
+        const towerMenu = document.getElementById('towerMenu');
         towerMenu.style.transition = 'transform 0.3s ease-out';
         towerMenu.style.transform = 'translate(-100%, 0)';
     }
 });
-
-socket.on('upgradePathChosen', (data) => {
-    const towerMenu = document.getElementById('towerMenu');
-    const dynamicMenu = document.getElementById('dynamicMenu');
-    if (dynamicMenu) {
-        dynamicMenu.remove(); // Remove the old dynamic content
-    }
-
-    // Create a container for dynamic content
-    const newDynamicMenu = document.createElement('div');
-    newDynamicMenu.id = 'dynamicMenu';
-
-    // Populate the tower menu with upgrade options
-    const towerInfo = document.createElement('div');
-    towerInfo.innerHTML = `
-        <h3>${data.name} Tower</h3>
-        <p>Range: ${data.range}</p>
-        <p>Damage: ${data.damage}</p>
-        <p>Fire Rate: ${data.fireRate}</p>
-        <p>Upgrade Level: ${data.upgradeLevel}</p>
-        <p>Upgrade Path: ${data.upgradePath}</p>
-    `;
-    newDynamicMenu.appendChild(towerInfo);
-
-    // Append the dynamic menu to the tower menu
-    towerMenu.appendChild(newDynamicMenu);
-
-    const upgradeButton = document.createElement('button');
-    upgradeButton.innerText = `Upgrade (${data.price} Bitpogs)`;
-    upgradeButton.onclick = () => upgradeTower(data.index);
-    newDynamicMenu.appendChild(upgradeButton);
-})
-
-socket.on('towerUpgraded', (data) => {
-    const towerMenu = document.getElementById('towerMenu');
-    const dynamicMenu = document.getElementById('dynamicMenu');
-    if (dynamicMenu) {
-        dynamicMenu.remove(); // Remove the old dynamic content
-    }
-
-    // Create a container for dynamic content
-    const newDynamicMenu = document.createElement('div');
-    newDynamicMenu.id = 'dynamicMenu';
-
-    // Populate the tower menu with upgrade options
-    const towerInfo = document.createElement('div');
-    towerInfo.innerHTML = `
-        <h3>${data.name} Tower</h3>
-        <p>Range: ${data.range}</p>
-        <p>Damage: ${data.damage}</p>
-        <p>Fire Rate: ${data.fireRate}</p>
-        <p>Upgrade Level: ${data.upgradeLevel}</p>
-        <p>Upgrade Path: ${data.upgradePath}</p>
-    `;
-    newDynamicMenu.appendChild(towerInfo);
-
-    // Append the dynamic menu to the tower menu
-    towerMenu.appendChild(newDynamicMenu);
-
-    const upgradeButton = document.createElement('button');
-    upgradeButton.innerText = `Upgrade (${data.price} Bitpogs)`;
-    upgradeButton.onclick = () => upgradeTower(data.index);
-    newDynamicMenu.appendChild(upgradeButton);
-})
 
 socket.on('codeWillNotBeExecuted', (information) => {
     console.log(information.text);

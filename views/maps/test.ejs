@@ -252,7 +252,7 @@
 
         #settingsPage {
             position: absolute;
-            background-color: #1e1e1e;
+            background-color: #a0a0a0;
             border: none;
             top: 10%;
             left: 15%;
@@ -261,7 +261,6 @@
             z-index: 10;
             display: none;
             border-radius: 15px;
-            transform: translateY(-100%);
         }
     </style>
 </head>
@@ -276,7 +275,10 @@
             </canvas>
             <button id="settings" onclick="openSettings()"></button>
             <div id="settingsMenu">
-                <div id="settingsPage"></div>
+                <div id="settingsPage">
+                    <button id="settingsButton">Return</button>
+                    <button id="optionsButton">Options</button>
+                </div>
             </div>
             <div id="gameOverPage">
                 <h1 id="gameOverText">Game Over!</h1>

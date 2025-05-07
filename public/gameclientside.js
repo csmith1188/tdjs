@@ -38,7 +38,7 @@ const settingsIcon = new Image();
 settingsIcon.src = '/images/userInterfaceImages/settingsIcon.png'; // Path to the image in the images folder
 settingsIcon.onload = () => {
     settingsIcon.loaded = false;
-} 
+}
 
 socket.emit('getTowerList');
 socket.on('towerList', (data) => {
@@ -78,7 +78,7 @@ function drawEnemy(enemy) {
             };
         }
     } else if (enemy.enemyType == 'pop-up') {
-        
+
         if (enemyPopupImage.complete) {
             ctx.drawImage(enemyPopupImage, x * spacing, y * spacing, size, size);
         } else {
@@ -89,10 +89,10 @@ function drawEnemy(enemy) {
         }
 
     } else if (enemy.enemyType == 'skeleton') {
-        
+
         if (enemySkeletonImage.complete) {
             ctx.drawImage(enemySkeletonImage, x * spacing, y * spacing, size, size);
-            
+
         } else {
             // Fallback in case the image hasn't loaded yet
             enemySkeletonImage.onload = () => {
@@ -440,11 +440,24 @@ function openSettings() {
     }, 0);
     const settingsPage = document.getElementById('settingsPage');
     settingsPage.style.display = 'block';
-    settingsMenu.style.transform = 'translateY(-100%)';
-    settingsMenu.style.transition = 'transform 0.3s ease-in-out';
+    settingsPage.style.transform = 'translateY(-100%)';
+    settingsPage.style.transition = 'transform 0.3s ease-in';
     setTimeout(() => {
-        settingsMenu.style.transform = 'translateY(0)';
+        settingsPage.style.transform = 'translateY(0)';
     }, 0);
+    const settingsButton = document.getElementById('settingsButton');
+    const optionsButton = document.getElementById('optionsButton');
+    settingsButton.addEventListener('click', () => {
+        settingsMenu.style.opacity = '0';
+        settingsPage.style.transform = 'translateY(-100%)';
+        setTimeout(() => {
+            settingsMenu.style.display = 'none';
+            settingsPage.style.display = 'none';
+        }, 300); // Match the transition duration
+    });
+    optionsButton.addEventListener('click', () => {
+        socket.emit('getSettings');
+    })
 }
 
 function runProgram() {
@@ -530,6 +543,101 @@ socket.on('gameData', (data) => {
     }
 });
 
+socket.on('settingsData', (data) => {
+    var settings = data
+    console.log(settings);
+
+    const settingsPage = document.getElementById('settingsPage');
+
+    settingsPage.innerHTML = ''; // Clear existing settings
+
+    Object.keys(settings).forEach(settingKey => {
+        const settingContainer = document.createElement('div');
+        settingContainer.className = 'setting-container';
+
+        const settingLabel = document.createElement('label');
+        settingLabel.innerText = settingKey;
+        settingLabel.htmlFor = settingKey;
+        settingLabel.style.display = 'block';
+        settingLabel.style.marginBottom = '5px';
+
+        const settingInput = document.createElement('input');
+        settingInput.id = settingKey;
+        settingInput.type = typeof settings[settingKey] === 'boolean' ? 'checkbox' : 'text';
+        settingInput.value = settings[settingKey];
+        if (typeof settings[settingKey] === 'boolean') {
+            settingInput.checked = settings[settingKey];
+        }
+        settingInput.style.marginBottom = '10px';
+
+        settingInput.addEventListener('change', () => {
+            const newValue = settingInput.type === 'checkbox' ? settingInput.checked : settingInput.value;
+            socket.emit('updateSetting', { key: settingKey, value: newValue });
+        });
+
+        const settingResetButton = document.createElement('button');
+        settingResetButton.innerText = 'Reset';
+        settingResetButton.style.marginLeft = '10px';
+        settingResetButton.addEventListener('click', () => {
+            socket.emit('resetSetting', settingKey);
+            settingInput.value = settings[settingKey];
+            if (typeof settings[settingKey] === 'boolean') {
+                settingInput.checked = settings[settingKey];
+            }
+        });
+
+        const settingSubmitButton = document.createElement('button');
+        settingSubmitButton.innerText = 'Save Settings';
+        settingSubmitButton.style.marginLeft = '10px';
+        settingSubmitButton.addEventListener('click', () => {
+            const newValue = settingInput.type === 'checkbox' ? settingInput.checked : settingInput.value;
+            const updatedSettings = {};
+            const settingInputs = settingsPage.querySelectorAll('input');
+            settingInputs.forEach(input => {
+                const key = input.id;
+                const value = input.type === 'checkbox' ? input.checked : input.value;
+                updatedSettings[key] = value;
+            });
+            socket.emit('updateSettings', updatedSettings);
+        });
+
+
+        const returnButton = document.createElement('button');
+        returnButton.innerText = 'Back';
+        returnButton.style.marginLeft = '10px';
+        returnButton.addEventListener('click', () => {
+            const optionsButton = document.createElement('button');
+            optionsButton.innerText = 'Options';
+            optionsButton.style.marginLeft = '10px';
+            optionsButton.addEventListener('click', () => {
+                socket.emit('getSettings');
+            });
+            const settingsButton = document.createElement('button');
+            settingsButton.innerText = 'Return';
+            settingsButton.style.marginLeft = '10px';
+            settingsButton.addEventListener('click', () => {
+                settingsMenu.style.opacity = '0';
+                settingsPage.style.transform = 'translateY(-100%)';
+                setTimeout(() => {
+                    settingsMenu.style.display = 'none';
+                    settingsPage.style.display = 'none';
+                }, 300); // Match the transition duration
+            });
+            settingsPage.innerHTML = ''; // Clear existing settings
+            settingsPage.appendChild(settingsButton);
+            settingsPage.appendChild(optionsButton);
+        });
+
+
+        settingContainer.appendChild(settingLabel);
+        settingContainer.appendChild(settingInput);
+        settingContainer.appendChild(settingResetButton);
+        settingContainer.appendChild(settingSubmitButton);
+        settingContainer.appendChild(returnButton);
+        settingsPage.appendChild(settingContainer);
+    });
+});
+
 socket.on('towerSelected', (data) => {
     const towerMenu = document.getElementById('towerMenu');
     const programMenu = document.getElementById('programBox');
@@ -538,7 +646,7 @@ socket.on('towerSelected', (data) => {
         if (selectedTower == null) {
             selectedTower = data.tower;
             upgradePaths = data.upgrades
-            
+
             const towerName = document.getElementById('towerName');
             towerName.innerText = `${selectedTower.name} Tower`;
 

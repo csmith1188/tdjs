@@ -227,6 +227,42 @@
             top: 5%;
             left: 80%;
         }
+
+        #settings:hover {
+            transform: rotate(270deg);
+            transition: transform 0.5s ease-in-out;
+        }
+
+        #settings {
+            transition: transform 0.5s ease-in-out;
+        }
+
+        #settingsMenu {
+            position: absolute;
+            background-color: #1e1e1e;
+            opacity: 0.75;
+            border: none;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            display: none;
+        }
+
+        #settingsPage {
+            position: absolute;
+            background-color: #1e1e1e;
+            border: none;
+            top: 10%;
+            left: 15%;
+            width: 60%;
+            height: 80%;
+            z-index: 10;
+            display: none;
+            border-radius: 15px;
+            transform: translateY(-100%);
+        }
     </style>
 </head>
 
@@ -234,11 +270,14 @@
     <div id="mainPage">
         <div id="gamePage">
             <canvas id="gameBoard">
-                <p id="baseHealth"></p>
-                <p id="money">Bitpogs: </p>
-                <p id="wave">Wave: </p>
+                <p id="baseHealth">Health: N/A</p>
+                <p id="money">Bitpogs: N/A</p>
+                <p id="wave">Wave: N/A</p>
             </canvas>
-            <button id="settings"></button>
+            <button id="settings" onclick="openSettings()"></button>
+            <div id="settingsMenu">
+                <div id="settingsPage"></div>
+            </div>
             <div id="gameOverPage">
                 <h1 id="gameOverText">Game Over!</h1>
                 <button id="restartButton" onclick="restartGame()">Restart</button>
@@ -263,21 +302,25 @@
                     <div id="upgradeButton1">
                         <button id="upgradeInfo1" onclick="event.stopPropagation();">?</button>
                         <p id="upgradeName1"></p>
+                        <p id="upgradePrice1"></p>
                         <p id="upgradeCost1"></p>
                     </div>
                     <div id="upgradeButton2">
                         <button id="upgradeInfo2" onclick="event.stopPropagation();">?</button>
                         <p id="upgradeName2"></p>
+                        <p id="upgradePrice2"></p>
                         <p id="upgradeCost2"></p>
                     </div>
                     <div id="upgradeButton3">
                         <button id="upgradeInfo3" onclick="event.stopPropagation();">?</button>
                         <p id="upgradeName3"></p>
+                        <p id="upgradePrice3"></p>
                         <p id="upgradeCost3"></p>
                     </div>
                     <div id="upgradeButton4">
                         <button id="upgradeInfo4" onclick="event.stopPropagation();">?</button>
                         <p id="upgradeName4"></p>
+                        <p id="upgradePrice4"></p>
                         <p id="upgradeCost4"></p>
                     </div>
                 </div>

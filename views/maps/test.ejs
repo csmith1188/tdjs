@@ -227,6 +227,42 @@
             top: 5%;
             left: 80%;
         }
+
+        #settings:hover {
+            transform: rotate(270deg);
+            transition: transform 0.5s ease-in-out;
+        }
+
+        #settings {
+            transition: transform 0.5s ease-in-out;
+        }
+
+        #settingsMenu {
+            position: absolute;
+            background-color: #1e1e1e;
+            opacity: 0.75;
+            border: none;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            display: none;
+        }
+
+        #settingsPage {
+            position: absolute;
+            background-color: #1e1e1e;
+            border: none;
+            top: 10%;
+            left: 15%;
+            width: 60%;
+            height: 80%;
+            z-index: 10;
+            display: none;
+            border-radius: 15px;
+            transform: translateY(-100%);
+        }
     </style>
 </head>
 
@@ -238,7 +274,10 @@
                 <p id="money">Bitpogs: N/A</p>
                 <p id="wave">Wave: N/A</p>
             </canvas>
-            <button id="settings"></button>
+            <button id="settings" onclick="openSettings()"></button>
+            <div id="settingsMenu">
+                <div id="settingsPage"></div>
+            </div>
             <div id="gameOverPage">
                 <h1 id="gameOverText">Game Over!</h1>
                 <button id="restartButton" onclick="restartGame()">Restart</button>

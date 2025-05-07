@@ -786,58 +786,69 @@ class Projectile {
             const dx = this.targetX - this.x;
             const dy = this.targetY - this.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
-    
+        
             if (distance === 0) {
-                this.reset();
-                return;
+            this.reset();
+            return;
             }
-    
+        
             this.directionX = dx / distance;
             this.directionY = dy / distance;
         }
-    
+        
         // Calculate new position
         const newX = this.x + this.directionX * this.speed;
         const newY = this.y + this.directionY * this.speed;
-    
-        // Check for collisions along the path
+        
+        // Find the closest enemy to the projectile
         const user = users.get(this.userId);
+        let closestEnemy = null;
+        let minDistance = Infinity;
+
         if (user) {
-            for (let i = user.enemies.length - 1; i >= 0; i--) {
-                const enemy = user.enemies[i];
-                const projectileRadius = this.size / 2;
-    
-                // Check for collision along the path using interpolation
-                const distanceToPath = this.distanceToLineSegment(
-                    this.x, this.y, newX, newY, enemy.x, enemy.y
-                );
-    
-                if (distanceToPath <= projectileRadius) {
-                    if (!this.noHitList.includes(enemy)) {
-                        this.noHitList.push(enemy); // Prevent multiple hits
-                        enemy.health -= this.damage; // Deal damage
-    
-                        if (enemy.health <= 0) {
-                            user.money += enemy.maxHealth; // Reward money
-                            user.enemies.splice(i, 1); // Remove enemy
-                            enemyPool.releaseEnemy(enemy); // Return to pool
-                        }
-    
-                        // Handle piercing
-                        this.pierce--;
-                        if (this.pierce <= 0) {
-                            this.reset();
-                            return;
-                        }
-                    }
-                }
+            for (const enemy of user.enemies) {
+            const distanceToEnemy = Math.sqrt((enemy.x - this.x) ** 2 + (enemy.y - this.y) ** 2);
+            if (distanceToEnemy < minDistance) {
+                minDistance = distanceToEnemy;
+                closestEnemy = enemy;
+            }
             }
         }
-    
+
+        // Check for collisions along the path with the closest enemy
+        if (closestEnemy) {
+            const projectileRadius = this.size / 2;
+
+            const distanceToPath = this.distanceToLineSegment(
+            this.x, this.y, newX, newY, closestEnemy.x, closestEnemy.y
+            );
+            console.log(`Distance to path: ${distanceToPath}, Projectile radius: ${projectileRadius}`);
+            
+            if (distanceToPath <= projectileRadius) {
+            if (!this.noHitList.includes(closestEnemy)) {
+                this.noHitList.push(closestEnemy); // Prevent multiple hits
+                closestEnemy.health -= this.damage; // Deal damage
+
+                if (closestEnemy.health <= 0) {
+                user.money += closestEnemy.maxHealth; // Reward money
+                user.enemies.splice(user.enemies.indexOf(closestEnemy), 1); // Remove enemy
+                enemyPool.releaseEnemy(closestEnemy); // Return to pool
+                }
+
+                // Handle piercing
+                this.pierce--;
+                if (this.pierce <= 0) {
+                this.reset();
+                return;
+                }
+            }
+            }
+        }
+        
         // Update position
         this.x = newX;
         this.y = newY;
-    
+        
         // Reduce lifetime and reset if expired
         this.lifeTime -= this.speed;
         if (this.lifeTime <= 0) {
@@ -1033,7 +1044,7 @@ function connection(socket, io) {
             currentWave: -1,
             gameIsRunning: true,
             gameOver: false,
-            settings: {},
+            settings: {programBlocks: false},
             socket: socket
         });
     } else {

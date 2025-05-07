@@ -430,6 +430,23 @@ function restartGame() {
     socket.emit('restartGame');
 }
 
+function openSettings() {
+    const settingsMenu = document.getElementById('settingsMenu');
+    settingsMenu.style.display = 'block';
+    settingsMenu.style.opacity = '0';
+    settingsMenu.style.transition = 'opacity 0.3s ease-in-out';
+    setTimeout(() => {
+        settingsMenu.style.opacity = '0.75';
+    }, 0);
+    const settingsPage = document.getElementById('settingsPage');
+    settingsPage.style.display = 'block';
+    settingsMenu.style.transform = 'translateY(-100%)';
+    settingsMenu.style.transition = 'transform 0.3s ease-in-out';
+    setTimeout(() => {
+        settingsMenu.style.transform = 'translateY(0)';
+    }, 0);
+}
+
 function runProgram() {
     const programBox = document.getElementById('programBox');
     socket.emit('userProgram', programBox.value, selectedTower.index);

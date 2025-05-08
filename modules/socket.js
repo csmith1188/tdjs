@@ -1075,9 +1075,12 @@ function connection(socket, io) {
             let y = Math.floor(placementInformation.y);
             if (!grid[y][x].hasPath && !user.towers.find(tower => tower.x === x && tower.y === y)) {
                 user.towers.push(new Tower(placementInformation.tower, user.id, {}, y, x));
+                
                 socket.emit('towerSelected', {
                     tower: user.towers[user.towers.length - 1],
-                    upgrades: upgradePaths[user.towers[user.towers.length - 1].name]
+                    upgrades: upgradePaths[user.towers[user.towers.length - 1].name],
+                    settings: user.settings,
+                    functions: 'test'
                 });
             }
         }
@@ -1089,9 +1092,12 @@ function connection(socket, io) {
             let x = towerSelect.x;
             let y = towerSelect.y;
             const tower = user.towers.find(tower => tower.x === x && tower.y === y);
+            
             socket.emit('towerSelected', {
                 tower: tower || null,
-                upgrades: tower ? upgradePaths[tower.name] : null
+                upgrades: tower ? upgradePaths[tower.name] : null,
+                settings: user.settings,
+                functions: 'test'
             });
         }
     });

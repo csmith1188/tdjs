@@ -1575,9 +1575,7 @@ let gameLoop = setInterval(() => {
                 }
             }
         }
-        // this.canShoot = () => {
-        //     return this.currentTime - this.lastShotTime >= (frameRate / this.effectiveStats.fireRate);
-        // };
+        
         // Update projectiles
         for (let i = user.projectiles.length - 1; i >= 0; i--) {
             let projectile = user.projectiles[i];

@@ -197,24 +197,24 @@ const upgradePaths = {
     },
     MoneyTree: {
         path1: [
-            { name: 'Golden Leaves', range: 0, damage: 0, fireRate: 0, moneyRate: 5, price: 50 },
-            { name: 'Wealthy Roots', range: 0, damage: 0, fireRate: 0, moneyRate: 10, price: 100 },
-            { name: 'Fortune Blossom', range: 0, damage: 0, fireRate: 0, moneyRate: 20, price: 200 }
+            { name: 'Golden Leaves', range: 0, damage: 0, fireRate: 0, moneyRate: 2, price: 500 },
+            { name: 'Wealthy Roots', range: 0, damage: 0, fireRate: 0, moneyRate: 4, price: 1000 },
+            { name: 'Fortune Blossom', range: 0, damage: 0, fireRate: 0, moneyRate: 4, price: 2000 }
         ],
         path2: [
-            { name: 'Rich Soil', range: 0, damage: 0, fireRate: 0, moneyRate: 5, price: 40 },
-            { name: 'Fertile Ground', range: 0, damage: 0, fireRate: 0, moneyRate: 10, price: 80 },
-            { name: 'Abundant Harvest', range: 0, damage: 0, fireRate: 0, moneyRate: 20, price: 150 }
+            { name: 'Rich Soil', range: 0, damage: 0, fireRate: 0, moneyRate: 2, price: 500 },
+            { name: 'Fertile Ground', range: 0, damage: 0, fireRate: 0, moneyRate: 4, price: 1000 },
+            { name: 'Abundant Harvest', range: 0, damage: 0, fireRate: 0, moneyRate: 4, price: 2000 }
         ],
         path3: [
-            { name: 'Lucky Charm', range: 0, damage: 0, fireRate: 0, moneyRate: 5, price: 30 },
-            { name: 'Fortune Cookie', range: 0, damage: 0, fireRate: 0, moneyRate: 10, price: 60 },
-            { name: 'Prosperity Seed', range: 0, damage: 0, fireRate: 0, moneyRate: 20, price: 90 }
+            { name: 'Lucky Charm', range: 0, damage: 0, fireRate: 0, moneyRate: 2, price: 500 },
+            { name: 'Fortune Cookie', range: 0, damage: 0, fireRate: 0, moneyRate: 4, price: 1000 },
+            { name: 'Prosperity Seed', range: 0, damage: 0, fireRate: 0, moneyRate: 4, price: 2000 }
         ],
         path4: [
-            { name: 'Money Magnet', range: 0, damage: 0, fireRate: 0, moneyRate: 5, price: 20 },
-            { name: 'Wealthy Aura', range: 0, damage: 0, fireRate: 0, moneyRate: 10, price: 40 },
-            { name: 'Treasure Grove', range: 0, damage: 0, fireRate: 0, moneyRate: 20, price: 80 }
+            { name: 'Money Magnet', range: 0, damage: 0, fireRate: 0, moneyRate: 2, price: 500 },
+            { name: 'Wealthy Aura', range: 0, damage: 0, fireRate: 0, moneyRate: 4, price: 1000 },
+            { name: 'Treasure Grove', range: 0, damage: 0, fireRate: 0, moneyRate: 4, price: 2000 }
         ]
     }
 };
@@ -527,7 +527,7 @@ class Tower {
             range: this.range,
             damage: this.damage,
             fireRate: this.fireRate,
-            moneyRate: this.moneyRate || 0
+            moneyRate: this.moneyRate
         };
 
         this.shootLocation = null;
@@ -603,7 +603,7 @@ class Tower {
                 this.fireRate = 0;
                 this.moneyRate = 1;
                 this.name = 'MoneyTree';
-                this.price = 50;
+                this.price = 250;
                 break;
 
         }
@@ -613,17 +613,18 @@ class Tower {
             const pathIndex = parseInt(pathKey.replace('path', '')) - 1;
             const level = this.upgradePath[pathIndex];
             if (level > 0) {
-            for (let i = 0; i < level; i++) {
-                const upgrade = pathArray[i];
-                this.range += upgrade.range || 0;
-                this.damage += upgrade.damage || 0;
-                this.fireRate += upgrade.fireRate || 0;
-                this.price += upgrade.price || 0;
-            }
+                for (let i = 0; i < level; i++) {
+                    const upgrade = pathArray[i];
+                    this.range += upgrade.range || 0;
+                    this.damage += upgrade.damage || 0;
+                    this.fireRate += upgrade.fireRate || 0;
+                    this.moneyRate += upgrade.moneyRate || 0;
+                    this.price += upgrade.price || 0;
+                }
             }
         }
         console.log(`Tower stats: range=${this.range}, damage=${this.damage}, fireRate=${this.fireRate}, price=${this.price}`);
-        
+
 
         this.shootLocation = null;
         this.damageCount = 0;
@@ -1156,7 +1157,7 @@ function connection(socket, io) {
             let y = Math.floor(placementInformation.y);
             if (!grid[y][x].hasPath && !user.towers.find(tower => tower.x === x && tower.y === y)) {
                 user.towers.push(new Tower(placementInformation.tower, user.id, {}, y, x));
-                
+
                 socket.emit('towerSelected', {
                     tower: user.towers[user.towers.length - 1],
                     upgrades: upgradePaths[user.towers[user.towers.length - 1].name],
@@ -1173,7 +1174,7 @@ function connection(socket, io) {
             let x = towerSelect.x;
             let y = towerSelect.y;
             const tower = user.towers.find(tower => tower.x === x && tower.y === y);
-            
+
             socket.emit('towerSelected', {
                 tower: tower || null,
                 upgrades: tower ? upgradePaths[tower.name] : null,
@@ -1197,40 +1198,40 @@ function connection(socket, io) {
                 canShoot: () => user.towers[towerIndex].canShoot(),
                 shoot: target => user.towers[towerIndex].shoot(target, ticks),
             };
-    
+
             const prohibitedKeywords = [
                 'String', 'fromCharCode', 'eval', 'Function', 'constructor', 'global', 'process',
                 'Buffer', 'require', 'setTimeout', 'setInterval', 'Reflect', 'Proxy', 'vm',
                 'child_process', 'console', 'this'
             ];
-    
+
             try {
                 let codeToExecute = program;
-    
+
                 // Check if the user is using block-based code
                 if (user.settings.programBlocks) {
                     console.log('Processing block-based code...');
-                    
+
                     // Convert block-based code (XML or JSON) to JavaScript
                     const workspace = new Blockly.Workspace();
                     Blockly.Xml.domToWorkspace(Blockly.Xml.textToDom(program), workspace);
                     codeToExecute = Blockly.JavaScript.workspaceToCode(workspace);
-    
+
                     console.log('Converted block-based code to JavaScript:', codeToExecute);
                 } else {
                     console.log('Processing normal code...');
                 }
-    
+
                 // Check for prohibited keywords
                 for (const keyword of prohibitedKeywords) {
                     if (codeToExecute.includes(keyword)) {
                         throw new Error(`Prohibited keyword detected: "${keyword}"`);
                     }
                 }
-    
+
                 // Parse the program into an AST
                 const ast = acorn.parse(codeToExecute, { ecmaVersion: 2020 });
-    
+
                 // Walk through the AST to detect prohibited patterns
                 walkSimple(ast, {
                     WithStatement(node) {
@@ -1295,7 +1296,7 @@ function connection(socket, io) {
                         }
                     }
                 });
-    
+
                 // Create a sandbox for execution
                 const sandbox = {
                     ...allowedFunctions,
@@ -1316,13 +1317,13 @@ function connection(socket, io) {
                     require: undefined,
                     child_process: undefined,
                 };
-    
+
                 // Execute the program in the sandbox
                 const vm = require('vm');
                 const script = new vm.Script(codeToExecute);
                 const context = vm.createContext(sandbox);
                 script.runInContext(context, { timeout: 250 });
-    
+
                 // Save the program to the tower
                 user.towers[tower].userCode = { program: codeToExecute, sandbox };
                 console.log('Program executed successfully:', codeToExecute);
@@ -1346,7 +1347,7 @@ function connection(socket, io) {
             { name: 'SlowTower', price: 15, range: 4, damage: 0, fireRate: 2 },
             { name: 'CannonTower', price: 20, range: 5, damage: 5, fireRate: 1 },
             { name: 'PoisonTower', price: 20, range: 4, damage: 0, fireRate: 5 },
-            { name: 'MoneyTree', price: 50, range: 0, damage: 0, fireRate: 0, moneyRate: 1000 }
+            { name: 'MoneyTree', price: 250, range: 0, damage: 0, fireRate: 0, moneyRate: 1 }
         ];
         socket.emit('towerList', towerTypes);
     });
@@ -1453,7 +1454,7 @@ function connection(socket, io) {
             console.log('Updating settings:', settings);
             user.settings = settings;
             console.log(user.settings);
-            
+
         }
     });
 
@@ -1558,16 +1559,20 @@ let gameLoop = setInterval(() => {
         for (const tower of towers) {
             this.currentTime = ticks;
 
-            if (tower.name === 'MoneyTree') {
+            if (tower.name == 'MoneyTree') {
                 // Ensure moneyRate and lastMoneyTime are initialized for each MoneyTree tower
                 if (!tower.lastMoneyTime) tower.lastMoneyTime = 0; // Initialize to 0 if not set
                 if (!tower.moneyRate) tower.moneyRate = 1; // Default to 1 if not set
-                // Generate money for this MoneyTree tower
-                if (this.currentTime - tower.lastMoneyTime >= (frameRate / tower.moneyRate)) {
-                    tower.lastMoneyTime = this.currentTime;
-                    user.money += tower.effectiveStats.moneyRate; // Add money from this tower
-                    user.money = Math.round(user.money * 10) / 10; // Round to 1 decimal place
-                    console.log(`MoneyTree generated money: ${tower.effectiveStats.moneyRate}`);
+
+                // Check if enemies are currently spawning
+                if (waveQueue.length > 0 || sectionQueue.length > 0) {
+                    // Generate money for this MoneyTree tower
+                    if (this.currentTime - tower.lastMoneyTime >= (frameRate / tower.moneyRate)) {
+                        tower.lastMoneyTime = this.currentTime;
+                        user.money += tower.effectiveStats.moneyRate; // Add money from this tower
+                        user.money = Math.round(user.money * 10) / 10; // Round to 1 decimal place
+                        console.log(`MoneyTree generated money: ${tower.effectiveStats.moneyRate}`);
+                    }
                 }
             } else {
                 tower.findTarget(ticks);

@@ -150,6 +150,72 @@ const upgradePaths = {
             { name: 'Deep Freeze', range: 0, damage: 0, fireRate: 2, price: 40 },
             { name: 'Absolute Zero', range: 0, damage: 0, fireRate: 3, price: 60 }
         ]
+    },
+    CannonTower: {
+        path1: [
+            { name: 'Explosive Shells', range: 0, damage: 5, fireRate: -0.5, price: 50 },
+            { name: 'Fragmentation Rounds', range: 1, damage: 10, fireRate: 0, price: 100 },
+            { name: 'Aftershock', range: 2, damage: 25, fireRate: -1, price: 200 }
+        ],
+        path2: [
+            { name: 'Extended Range', range: 3, damage: 0, fireRate: 0, price: 40 },
+            { name: 'Precision Targeting', range: 5, damage: 2, fireRate: 0, price: 80 },
+            { name: 'Sniper Precision', range: 7, damage: 5, fireRate: 0, price: 150 }
+        ],
+        path3: [
+            { name: 'Quick Reload', range: 0, damage: 0, fireRate: 1, price: 30 },
+            { name: 'Advanced Mechanics', range: 0, damage: 1, fireRate: 4, price: 70 },
+            { name: 'Rapid Fire', range: 0, damage: 2, fireRate: 10, price: 150 }
+        ],
+        path4: [
+            { name: 'Balanced Shells', range: 0, damage: 2, fireRate: 2, price: 40 },
+            { name: 'Huge Rounds', range: 0, damage: 4, fireRate: 0, price: 80 },
+            { name: 'Unstoppable Force', range: 0, damage: 6, fireRate: -1, price: 120 } //in the future make this one let the projectile pass through multiple enemies
+        ]
+    },
+    PoisonTower: {
+        path1: [
+            { name: 'Toxic Burst', range: 0, damage: 0, fireRate: 3, price: 40, effect: { poison: 0.1 } },
+            { name: 'Venomous Spray', range: 1, damage: 0, fireRate: 2, price: 80, effect: { poison: 0.2 } },
+            { name: 'Noxious Cloud', range: 2, damage: 0, fireRate: 1, price: 120, effect: { poison: 0.3 } }
+        ],
+        path2: [
+            { name: 'Large Spray', range: 3, damage: 0, fireRate: 0, price: 25 },
+            { name: 'Fog Machine', range: 5, damage: 0, fireRate: 3, price: 60 },
+            { name: 'Acid Storm', range: 7, damage: 0, fireRate: 3, price: 100 }
+        ],
+        path3: [
+            { name: 'Coated Rounds', range: 0, damage: 2, fireRate: 0, price: 30 },
+            { name: 'Corrosive Rounds', range: 0, damage: 4, fireRate: 0, price: 60 },
+            { name: 'Pure Poison', range: 0, damage: 10, fireRate: 0, price: 90 }
+        ],
+        path4: [
+            { name: 'Auto Chambering', range: 0, damage: 0, fireRate: 5, price: 20 },
+            { name: 'Reusable Gas', range: 0, damage: 0, fireRate: 7, price: 40 },
+            { name: 'Gas Chamber', range: 10, damage: 0, fireRate: 10, price: 90 }
+        ]
+    },
+    MoneyTree: {
+        path1: [
+            { name: 'Golden Leaves', range: 0, damage: 0, fireRate: 0, moneyRate: 2, price: 500 },
+            { name: 'Wealthy Roots', range: 0, damage: 0, fireRate: 0, moneyRate: 4, price: 1000 },
+            { name: 'Fortune Blossom', range: 0, damage: 0, fireRate: 0, moneyRate: 4, price: 2000 }
+        ],
+        path2: [
+            { name: 'Rich Soil', range: 0, damage: 0, fireRate: 0, moneyRate: 2, price: 500 },
+            { name: 'Fertile Ground', range: 0, damage: 0, fireRate: 0, moneyRate: 4, price: 1000 },
+            { name: 'Abundant Harvest', range: 0, damage: 0, fireRate: 0, moneyRate: 4, price: 2000 }
+        ],
+        path3: [
+            { name: 'Lucky Charm', range: 0, damage: 0, fireRate: 0, moneyRate: 2, price: 500 },
+            { name: 'Fortune Cookie', range: 0, damage: 0, fireRate: 0, moneyRate: 4, price: 1000 },
+            { name: 'Prosperity Seed', range: 0, damage: 0, fireRate: 0, moneyRate: 4, price: 2000 }
+        ],
+        path4: [
+            { name: 'Money Magnet', range: 0, damage: 0, fireRate: 0, moneyRate: 2, price: 500 },
+            { name: 'Wealthy Aura', range: 0, damage: 0, fireRate: 0, moneyRate: 4, price: 1000 },
+            { name: 'Treasure Grove', range: 0, damage: 0, fireRate: 0, moneyRate: 4, price: 2000 }
+        ]
     }
 };
 
@@ -289,7 +355,7 @@ class Enemy {
                 this.health = 100;
                 this.maxHealth = 100;
                 this.speed = 10;
-                this.color = 'white';
+                this.color = 'neonred';
                 break;
             case 'camo':
                 this.health = 50;
@@ -299,27 +365,27 @@ class Enemy {
                 break;
             case 'pop-up':
                 this.health = 50;
-                this.maxHealth = 100;
+                this.maxHealth = 50;
                 this.speed = 30;
                 this.color = 'red';
                 break;
             case 'sprinter':
                 this.health = 50;
-                this.maxHealth = 100;
+                this.maxHealth = 50;
                 this.speed = 25;
                 this.color = 'pink';
                 this.addStatus(boostStatus, 180, 4);
                 break;
             case 'trickster':
                 this.health = 1;
-                this.maxHealth = 100;
+                this.maxHealth = 1;
                 this.speed = 70;
                 this.color = 'orange';
                 this.addStatus(slowStatus, 180, 4);
                 break;
             case 'skeleton':
-                this.health = 5;
-                this.maxHealth = 100;
+                this.health = 3;
+                this.maxHealth = 3;
                 this.speed = 40;
                 this.color = 'white';
                 break;
@@ -460,7 +526,8 @@ class Tower {
         this.effectiveStats = {
             range: this.range,
             damage: this.damage,
-            fireRate: this.fireRate
+            fireRate: this.fireRate,
+            moneyRate: this.moneyRate
         };
 
         this.shootLocation = null;
@@ -509,25 +576,36 @@ class Tower {
                 this.price = 15;
                 break;
             case 'PoisonTower':
-                    this.size = 10;
-                    this.color = 'limegreen';
-                    this.range = 4;
-                    this.damage = 0;
-                    this.fireRate = 0.5;
-                    this.name = 'PoisonTower';
-                    this.inflictStatuses.push(poisonStatus);
-                    this.price = 20;
-                    break;
-                    // CANNON IS A WORK IN PROGRESS
-            case 'Cannon':
-                    this.size = 10;
-                    this.color = 'black';
-                    this.range = 5;
-                    this.damage = 5;
-                    this.fireRate = 1;
-                    this.name = 'Cannon';
-                    this.price = 20;
-                    break;
+                this.size = 10;
+                this.color = 'limegreen';
+                this.range = 4;
+                this.damage = 0;
+                this.fireRate = 0.5;
+                this.name = 'PoisonTower';
+                this.inflictStatuses.push(poisonStatus);
+                this.price = 20;
+                break;
+            // CANNON IS A WORK IN PROGRESS
+            case 'CannonTower':
+                this.size = 10;
+                this.color = 'black';
+                this.range = 5;
+                this.damage = 5;
+                this.fireRate = 1;
+                this.name = 'CannonTower';
+                this.price = 20;
+                break;
+            case 'MoneyTree':
+                this.size = 10;
+                this.color = 'gold';
+                this.range = 0;
+                this.damage = 0;
+                this.fireRate = 0;
+                this.moneyRate = 1;
+                this.name = 'MoneyTree';
+                this.price = 250;
+                break;
+
         }
 
         // Apply upgrades from all active paths
@@ -535,21 +613,23 @@ class Tower {
             const pathIndex = parseInt(pathKey.replace('path', '')) - 1;
             const level = this.upgradePath[pathIndex];
             if (level > 0) {
-            for (let i = 0; i < level; i++) {
-                const upgrade = pathArray[i];
-                this.range += upgrade.range || 0;
-                this.damage += upgrade.damage || 0;
-                this.fireRate += upgrade.fireRate || 0;
-                this.price += upgrade.price || 0;
-            }
+                for (let i = 0; i < level; i++) {
+                    const upgrade = pathArray[i];
+                    this.range += upgrade.range || 0;
+                    this.damage += upgrade.damage || 0;
+                    this.fireRate += upgrade.fireRate || 0;
+                    this.moneyRate += upgrade.moneyRate || 0;
+                    this.price += upgrade.price || 0;
+                }
             }
         }
         console.log(`Tower stats: range=${this.range}, damage=${this.damage}, fireRate=${this.fireRate}, price=${this.price}`);
-        
+
 
         this.shootLocation = null;
         this.damageCount = 0;
         this.lastShotTime = 0;
+        this.lastMoneyTime = 0;
     }
 
     chooseUpgradePath(pathIndex) {
@@ -560,18 +640,18 @@ class Tower {
             console.log(`Upgrade path ${pathIndex + 1} already in use.`);
         }
     }
-    
+
     upgrade(pathIndex) {
         const user = users.get(this.userId);
         if (user) {
             const primaryMaxUpgradeLevel = 3; // Maximum upgrade level for the primary path
             const secondaryMaxUpgradeLevel = 2; // Maximum upgrade level for secondary paths
-    
+
             if (upgradePath[pathIndex] === 0) {
                 // Automatically choose the path if it's the first upgrade
                 console.log(`Automatically choosing path ${pathIndex + 1}.`);
             }
-    
+
             const currentLevel = upgradePath[pathIndex];
             if (currentLevel < primaryMaxUpgradeLevel) {
                 const upgradeCost = this.price;
@@ -581,7 +661,7 @@ class Tower {
                     this.upgradeLevel++;
                     this.updateStats(this.name.toLowerCase());
                     console.log(`Tower upgraded to level ${upgradePath[pathIndex]} on path ${pathIndex + 1}`);
-    
+
                     // If the tower reaches tier 3 on this path, lock other paths to tier 2
                     if (upgradePath[pathIndex] === primaryMaxUpgradeLevel) {
                         upgradePath.forEach((level, index) => {
@@ -789,20 +869,20 @@ class Projectile {
             const dx = this.targetX - this.x;
             const dy = this.targetY - this.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
-        
+
             if (distance === 0) {
-            this.reset();
-            return;
+                this.reset();
+                return;
             }
-        
+
             this.directionX = dx / distance;
             this.directionY = dy / distance;
         }
-        
+
         // Calculate new position
         const newX = this.x + this.directionX * this.speed;
         const newY = this.y + this.directionY * this.speed;
-        
+
         // Find the closest enemy to the projectile
         const user = users.get(this.userId);
         let closestEnemy = null;
@@ -810,11 +890,11 @@ class Projectile {
 
         if (user) {
             for (const enemy of user.enemies) {
-            const distanceToEnemy = Math.sqrt((enemy.x - this.x) ** 2 + (enemy.y - this.y) ** 2);
-            if (distanceToEnemy < minDistance) {
-                minDistance = distanceToEnemy;
-                closestEnemy = enemy;
-            }
+                const distanceToEnemy = Math.sqrt((enemy.x - this.x) ** 2 + (enemy.y - this.y) ** 2);
+                if (distanceToEnemy < minDistance) {
+                    minDistance = distanceToEnemy;
+                    closestEnemy = enemy;
+                }
             }
         }
 
@@ -823,53 +903,53 @@ class Projectile {
             const projectileRadius = this.size / 2;
 
             const distanceToPath = this.distanceToLineSegment(
-            this.x, this.y, newX, newY, closestEnemy.x, closestEnemy.y
+                this.x, this.y, newX, newY, closestEnemy.x, closestEnemy.y
             );
             console.log(`Distance to path: ${distanceToPath}, Projectile radius: ${projectileRadius}`);
-            
+
             if (distanceToPath <= projectileRadius) {
-            if (!this.noHitList.includes(closestEnemy)) {
-                this.noHitList.push(closestEnemy); // Prevent multiple hits
-                closestEnemy.health -= this.damage; // Deal damage
+                if (!this.noHitList.includes(closestEnemy)) {
+                    this.noHitList.push(closestEnemy); // Prevent multiple hits
+                    closestEnemy.health -= this.damage; // Deal damage
 
-                if (closestEnemy.health <= 0) {
-                user.money += closestEnemy.maxHealth; // Reward money
-                user.enemies.splice(user.enemies.indexOf(closestEnemy), 1); // Remove enemy
-                enemyPool.releaseEnemy(closestEnemy); // Return to pool
-                }
+                    if (closestEnemy.health <= 0) {
+                        user.money += closestEnemy.maxHealth; // Reward money
+                        user.enemies.splice(user.enemies.indexOf(closestEnemy), 1); // Remove enemy
+                        enemyPool.releaseEnemy(closestEnemy); // Return to pool
+                    }
 
-                // Handle piercing
-                this.pierce--;
-                if (this.pierce <= 0) {
-                this.reset();
-                return;
+                    // Handle piercing
+                    this.pierce--;
+                    if (this.pierce <= 0) {
+                        this.reset();
+                        return;
+                    }
                 }
-            }
             }
         }
-        
+
         // Update position
         this.x = newX;
         this.y = newY;
-        
+
         // Reduce lifetime and reset if expired
         this.lifeTime -= this.speed;
         if (this.lifeTime <= 0) {
             this.reset();
         }
     }
-    
+
     // Helper function to calculate the distance from a point to a line segment
     distanceToLineSegment(x1, y1, x2, y2, px, py) {
         const lengthSquared = (x2 - x1) ** 2 + (y2 - y1) ** 2;
         if (lengthSquared === 0) return Math.sqrt((px - x1) ** 2 + (py - y1) ** 2);
-    
+
         let t = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / lengthSquared;
         t = Math.max(0, Math.min(1, t));
-    
+
         const closestX = x1 + t * (x2 - x1);
         const closestY = y1 + t * (y2 - y1);
-    
+
         return Math.sqrt((px - closestX) ** 2 + (py - closestY) ** 2);
     }
 }
@@ -1043,11 +1123,11 @@ function connection(socket, io) {
             waveQueue: [],
             sectionQueue: [],
             health: 100,
-            money: 0,
+            money: 50,
             currentWave: -1,
             gameIsRunning: true,
             gameOver: false,
-            settings: {programBlocks: false},
+            settings: { programBlocks: false },
             socket: socket
         });
     } else {
@@ -1077,7 +1157,7 @@ function connection(socket, io) {
             let y = Math.floor(placementInformation.y);
             if (!grid[y][x].hasPath && !user.towers.find(tower => tower.x === x && tower.y === y)) {
                 user.towers.push(new Tower(placementInformation.tower, user.id, {}, y, x));
-                
+
                 socket.emit('towerSelected', {
                     tower: user.towers[user.towers.length - 1],
                     upgrades: upgradePaths[user.towers[user.towers.length - 1].name],
@@ -1094,7 +1174,7 @@ function connection(socket, io) {
             let x = towerSelect.x;
             let y = towerSelect.y;
             const tower = user.towers.find(tower => tower.x === x && tower.y === y);
-            
+
             socket.emit('towerSelected', {
                 tower: tower || null,
                 upgrades: tower ? upgradePaths[tower.name] : null,
@@ -1118,40 +1198,40 @@ function connection(socket, io) {
                 canShoot: () => user.towers[towerIndex].canShoot(),
                 shoot: target => user.towers[towerIndex].shoot(target, ticks),
             };
-    
+
             const prohibitedKeywords = [
                 'String', 'fromCharCode', 'eval', 'Function', 'constructor', 'global', 'process',
                 'Buffer', 'require', 'setTimeout', 'setInterval', 'Reflect', 'Proxy', 'vm',
                 'child_process', 'console', 'this'
             ];
-    
+
             try {
                 let codeToExecute = program;
-    
+
                 // Check if the user is using block-based code
                 if (user.settings.programBlocks) {
                     console.log('Processing block-based code...');
-                    
+
                     // Convert block-based code (XML or JSON) to JavaScript
                     const workspace = new Blockly.Workspace();
                     Blockly.Xml.domToWorkspace(Blockly.Xml.textToDom(program), workspace);
                     codeToExecute = Blockly.JavaScript.workspaceToCode(workspace);
-    
+
                     console.log('Converted block-based code to JavaScript:', codeToExecute);
                 } else {
                     console.log('Processing normal code...');
                 }
-    
+
                 // Check for prohibited keywords
                 for (const keyword of prohibitedKeywords) {
                     if (codeToExecute.includes(keyword)) {
                         throw new Error(`Prohibited keyword detected: "${keyword}"`);
                     }
                 }
-    
+
                 // Parse the program into an AST
                 const ast = acorn.parse(codeToExecute, { ecmaVersion: 2020 });
-    
+
                 // Walk through the AST to detect prohibited patterns
                 walkSimple(ast, {
                     WithStatement(node) {
@@ -1216,7 +1296,7 @@ function connection(socket, io) {
                         }
                     }
                 });
-    
+
                 // Create a sandbox for execution
                 const sandbox = {
                     ...allowedFunctions,
@@ -1237,13 +1317,13 @@ function connection(socket, io) {
                     require: undefined,
                     child_process: undefined,
                 };
-    
+
                 // Execute the program in the sandbox
                 const vm = require('vm');
                 const script = new vm.Script(codeToExecute);
                 const context = vm.createContext(sandbox);
                 script.runInContext(context, { timeout: 250 });
-    
+
                 // Save the program to the tower
                 user.towers[tower].userCode = { program: codeToExecute, sandbox };
                 console.log('Program executed successfully:', codeToExecute);
@@ -1265,8 +1345,9 @@ function connection(socket, io) {
             { name: 'Sniper', price: 20, range: 8, damage: 10, fireRate: 0.5 },
             { name: 'MachineGun', price: 15, range: 3, damage: 1, fireRate: 10 },
             { name: 'SlowTower', price: 15, range: 4, damage: 0, fireRate: 2 },
-            {name: 'Cannon', price: 20, range: 5, damage: 5, fireRate: 1},
-            { name: 'PoisonTower', price: 20, range: 4, damage: 0, fireRate: 5 }
+            { name: 'CannonTower', price: 20, range: 5, damage: 5, fireRate: 1 },
+            { name: 'PoisonTower', price: 20, range: 4, damage: 0, fireRate: 5 },
+            { name: 'MoneyTree', price: 250, range: 0, damage: 0, fireRate: 0, moneyRate: 1 }
         ];
         socket.emit('towerList', towerTypes);
     });
@@ -1373,7 +1454,7 @@ function connection(socket, io) {
             console.log('Updating settings:', settings);
             user.settings = settings;
             console.log(user.settings);
-            
+
         }
     });
 
@@ -1459,7 +1540,7 @@ let gameLoop = setInterval(() => {
     ticks++;
 
     adjustPoolSizes(); // Adjust pool sizes based on active users
-   
+
 
     for (var [userId, userMap] of users) {
         let user = userMap
@@ -1476,9 +1557,28 @@ let gameLoop = setInterval(() => {
 
         // Update towers
         for (const tower of towers) {
-            tower.findTarget(ticks);
-            if (ticks - tower.lastShotTime >= 30) {
-                tower.shootLocation = null;
+            this.currentTime = ticks;
+
+            if (tower.name == 'MoneyTree') {
+                // Ensure moneyRate and lastMoneyTime are initialized for each MoneyTree tower
+                if (!tower.lastMoneyTime) tower.lastMoneyTime = 0; // Initialize to 0 if not set
+                if (!tower.moneyRate) tower.moneyRate = 1; // Default to 1 if not set
+
+                // Check if enemies are currently spawning
+                if (waveQueue.length > 0 || sectionQueue.length > 0) {
+                    // Generate money for this MoneyTree tower
+                    if (this.currentTime - tower.lastMoneyTime >= (frameRate / tower.moneyRate)) {
+                        tower.lastMoneyTime = this.currentTime;
+                        user.money += tower.effectiveStats.moneyRate; // Add money from this tower
+                        user.money = Math.round(user.money * 10) / 10; // Round to 1 decimal place
+                        console.log(`MoneyTree generated money: ${tower.effectiveStats.moneyRate}`);
+                    }
+                }
+            } else {
+                tower.findTarget(ticks);
+                if (ticks - tower.lastShotTime >= 30) {
+                    tower.shootLocation = null;
+                }
             }
         }
 

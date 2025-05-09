@@ -193,7 +193,10 @@
             grid-template-rows: 1fr 1fr;
         }
 
-        #upgradeButton1, #upgradeButton2, #upgradeButton3, #upgradeButton4 {
+        #upgradeButton1,
+        #upgradeButton2,
+        #upgradeButton3,
+        #upgradeButton4 {
             position: relative;
             background-color: #1e1e1e;
             border: none;
@@ -210,7 +213,10 @@
             box-sizing: border-box;
         }
 
-        #upgradeInfo1, #upgradeInfo2, #upgradeInfo3, #upgradeInfo4 {
+        #upgradeInfo1,
+        #upgradeInfo2,
+        #upgradeInfo3,
+        #upgradeInfo4 {
             position: absolute;
             background-color: #525252;
             border: none;
@@ -252,7 +258,7 @@
 
         #settingsPage {
             position: absolute;
-            background-color: #1e1e1e;
+            background-color: #a0a0a0;
             border: none;
             top: 10%;
             left: 15%;
@@ -261,7 +267,55 @@
             z-index: 10;
             display: none;
             border-radius: 15px;
-            transform: translateY(-100%);
+        }
+
+        #toolbox {
+            position: absolute;
+            background-color: #ff0000;
+            border: none;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            z-index: 100;
+        }
+
+        .blocklyToolboxDiv {
+            display: block;
+            visibility: visible;
+            opacity: 1;
+            width: 40%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .blocklyBlockCanvas {
+            display: block;
+            z-index: 20;
+        }
+
+        #programToolBarContainer {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: stretch;
+            width: 100%;
+            height: auto;
+            /* Ensure it grows with content */
+            overflow: visible;
+            /* Prevent content from being clipped */
+        }
+
+        #programWorkspace {
+            position: absolute;
+            background-color: #00ffff;
+            border: none;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 100;
         }
     </style>
 </head>
@@ -276,7 +330,10 @@
             </canvas>
             <button id="settings" onclick="openSettings()"></button>
             <div id="settingsMenu">
-                <div id="settingsPage"></div>
+                <div id="settingsPage">
+                    <button id="settingsButton">Return</button>
+                    <button id="optionsButton">Options</button>
+                </div>
             </div>
             <div id="gameOverPage">
                 <h1 id="gameOverText">Game Over!</h1>
@@ -326,7 +383,7 @@
                 </div>
                 <button id="sellButton" onclick="sellTower()">Sell: N/A</button>
                 <div id="programMenu">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div id="programToolBarContainer">
                         <button onclick="runProgram()" class="programButton" style="flex: 1; margin-right: 5px;">Run
                             Program</button>
                         <button onclick="clearProgram()" class="programButton" style="flex: 1; margin-right: 5px;">Clear
@@ -337,12 +394,14 @@
                     </div>
                     <textarea id="programBox" name="programBox" cols="22" rows="10"
                         style="resize: none; font-family: 'Courier New', monospace; white-space: pre; overflow-x: auto; background-color: #1e1e1e; color: #d4d4d4; border: 1px solid #3c3c3c; padding: 5px; line-height: 1.5; width: 100%; height: 100%; box-sizing: border-box; border-bottom-right-radius: 15px;"></textarea>
+                    <div id="programWorkspace"></div>
                 </div>
             </div>
         </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
+    <script src="https://unpkg.com/blockly/blockly.min.js"></script>
     <script src="gameclientside.js"></script>
 </body>
 

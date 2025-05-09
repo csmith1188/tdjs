@@ -1,6 +1,7 @@
 const vm = require('vm')
 const acorn = require('acorn')
 const walk = require('acorn-walk');
+const Blockly = require('blockly');
 const { log } = require('console');
 const { name } = require('ejs');
 const frameRate = 60;
@@ -1074,9 +1075,12 @@ function connection(socket, io) {
             let y = Math.floor(placementInformation.y);
             if (!grid[y][x].hasPath && !user.towers.find(tower => tower.x === x && tower.y === y)) {
                 user.towers.push(new Tower(placementInformation.tower, user.id, {}, y, x));
+                
                 socket.emit('towerSelected', {
                     tower: user.towers[user.towers.length - 1],
-                    upgrades: upgradePaths[user.towers[user.towers.length - 1].name]
+                    upgrades: upgradePaths[user.towers[user.towers.length - 1].name],
+                    settings: user.settings,
+                    functions: 'test'
                 });
             }
         }
@@ -1088,9 +1092,12 @@ function connection(socket, io) {
             let x = towerSelect.x;
             let y = towerSelect.y;
             const tower = user.towers.find(tower => tower.x === x && tower.y === y);
+            
             socket.emit('towerSelected', {
                 tower: tower || null,
-                upgrades: tower ? upgradePaths[tower.name] : null
+                upgrades: tower ? upgradePaths[tower.name] : null,
+                settings: user.settings,
+                functions: 'test'
             });
         }
     });
@@ -1109,24 +1116,40 @@ function connection(socket, io) {
                 canShoot: () => user.towers[towerIndex].canShoot(),
                 shoot: target => user.towers[towerIndex].shoot(target, ticks),
             };
-
+    
             const prohibitedKeywords = [
                 'String', 'fromCharCode', 'eval', 'Function', 'constructor', 'global', 'process',
                 'Buffer', 'require', 'setTimeout', 'setInterval', 'Reflect', 'Proxy', 'vm',
                 'child_process', 'console', 'this'
             ];
-
+    
             try {
+                let codeToExecute = program;
+    
+                // Check if the user is using block-based code
+                if (user.settings.programBlocks) {
+                    console.log('Processing block-based code...');
+                    
+                    // Convert block-based code (XML or JSON) to JavaScript
+                    const workspace = new Blockly.Workspace();
+                    Blockly.Xml.domToWorkspace(Blockly.Xml.textToDom(program), workspace);
+                    codeToExecute = Blockly.JavaScript.workspaceToCode(workspace);
+    
+                    console.log('Converted block-based code to JavaScript:', codeToExecute);
+                } else {
+                    console.log('Processing normal code...');
+                }
+    
                 // Check for prohibited keywords
                 for (const keyword of prohibitedKeywords) {
-                    if (program.includes(keyword)) {
+                    if (codeToExecute.includes(keyword)) {
                         throw new Error(`Prohibited keyword detected: "${keyword}"`);
                     }
                 }
-
+    
                 // Parse the program into an AST
-                const ast = acorn.parse(program, { ecmaVersion: 2020 });
-
+                const ast = acorn.parse(codeToExecute, { ecmaVersion: 2020 });
+    
                 // Walk through the AST to detect prohibited patterns
                 walkSimple(ast, {
                     WithStatement(node) {
@@ -1191,7 +1214,7 @@ function connection(socket, io) {
                         }
                     }
                 });
-
+    
                 // Create a sandbox for execution
                 const sandbox = {
                     ...allowedFunctions,
@@ -1212,16 +1235,16 @@ function connection(socket, io) {
                     require: undefined,
                     child_process: undefined,
                 };
-
-                // // Execute the program in the sandbox
-                // const vm = require('vm');
-                // const script = new vm.Script(program);
-                // const context = vm.createContext(sandbox);
-                // script.runInContext(context, { timeout: 250 });
-
+    
+                // Execute the program in the sandbox
+                const vm = require('vm');
+                const script = new vm.Script(codeToExecute);
+                const context = vm.createContext(sandbox);
+                script.runInContext(context, { timeout: 250 });
+    
                 // Save the program to the tower
-                user.towers[tower].userCode = { program, sandbox };
-                console.log('Program executed successfully:', program);
+                user.towers[tower].userCode = { program: codeToExecute, sandbox };
+                console.log('Program executed successfully:', codeToExecute);
             } catch (error) {
                 if (error.message.includes('Script execution timed out')) {
                     console.error('Error: Script execution timed out.');
@@ -1332,6 +1355,23 @@ function connection(socket, io) {
             user.towers.forEach((tower, index) => {
                 tower.index = index;
             });
+        }
+    });
+
+    socket.on('getSettings', () => {
+        let user = users.get(socket.id);
+        if (user) {
+            socket.emit('settingsData', user.settings);
+        }
+    });
+
+    socket.on('updateSettings', (settings) => {
+        let user = users.get(socket.id);
+        if (user) {
+            console.log('Updating settings:', settings);
+            user.settings = settings;
+            console.log(user.settings);
+            
         }
     });
 

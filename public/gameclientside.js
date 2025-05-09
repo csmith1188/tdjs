@@ -11,6 +11,29 @@ var towerShop = document.getElementById("gameMenu");
 var towerList = [];
 let previewTower = null; // To store the current preview tower position
 
+const workspace = Blockly.inject('programBox', {
+    toolbox: document.getElementById('programToolBarContainer')
+});
+
+Blockly.defineBlocksWithJsonArray([
+    {
+        "type": "test_block",
+        "message0": "Test Block",
+        "colour": 160,
+        "tooltip": "This is a test block.",
+        "helpUrl": "",
+    }
+]);
+
+// Constants for upgrade levels
+const PRIMARY_MAX_UPGRADE_LEVEL = 3;
+const SECONDARY_MAX_UPGRADE_LEVEL = 2;
+
+// Cache DOM elements
+const towerMenu = document.getElementById('towerMenu');
+const programMenu = document.getElementById('programBox');
+const programToolBarContainer = document.getElementById('programToolBarContainer');
+
 const enemySkeletonImage = new Image();
 enemySkeletonImage.src = '/images/enemySprites/skeletonEnemy.png'; // Path to the image in the images folder
 
@@ -38,7 +61,7 @@ const settingsIcon = new Image();
 settingsIcon.src = '/images/userInterfaceImages/settingsIcon.png'; // Path to the image in the images folder
 settingsIcon.onload = () => {
     settingsIcon.loaded = false;
-} 
+}
 
 socket.emit('getTowerList');
 socket.on('towerList', (data) => {
@@ -78,7 +101,7 @@ function drawEnemy(enemy) {
             };
         }
     } else if (enemy.enemyType == 'pop-up') {
-        
+
         if (enemyPopupImage.complete) {
             ctx.drawImage(enemyPopupImage, x * spacing, y * spacing, size, size);
         } else {
@@ -89,10 +112,10 @@ function drawEnemy(enemy) {
         }
 
     } else if (enemy.enemyType == 'skeleton') {
-        
+
         if (enemySkeletonImage.complete) {
             ctx.drawImage(enemySkeletonImage, x * spacing, y * spacing, size, size);
-            
+
         } else {
             // Fallback in case the image hasn't loaded yet
             enemySkeletonImage.onload = () => {
@@ -440,11 +463,24 @@ function openSettings() {
     }, 0);
     const settingsPage = document.getElementById('settingsPage');
     settingsPage.style.display = 'block';
-    settingsMenu.style.transform = 'translateY(-100%)';
-    settingsMenu.style.transition = 'transform 0.3s ease-in-out';
+    settingsPage.style.transform = 'translateY(-100%)';
+    settingsPage.style.transition = 'transform 0.3s ease-in';
     setTimeout(() => {
-        settingsMenu.style.transform = 'translateY(0)';
+        settingsPage.style.transform = 'translateY(0)';
     }, 0);
+    const settingsButton = document.getElementById('settingsButton');
+    const optionsButton = document.getElementById('optionsButton');
+    settingsButton.addEventListener('click', () => {
+        settingsMenu.style.opacity = '0';
+        settingsPage.style.transform = 'translateY(-100%)';
+        setTimeout(() => {
+            settingsMenu.style.display = 'none';
+            settingsPage.style.display = 'none';
+        }, 300); // Match the transition duration
+    });
+    optionsButton.addEventListener('click', () => {
+        socket.emit('getSettings');
+    })
 }
 
 function runProgram() {
@@ -489,6 +525,186 @@ function sendWave() {
     socket.emit('sendWave');
 }
 
+// Helper function to update toolbar buttons
+function updateToolbarButtons(buttons) {
+    programToolBarContainer.innerHTML = ''; // Clear existing buttons
+    buttons.forEach(button => {
+        const btn = document.createElement('button');
+        btn.className = 'programButton';
+        btn.style.flex = '1';
+        btn.style.marginRight = '5px';
+        btn.innerText = button.text;
+        btn.setAttribute('onclick', button.onclick);
+        programToolBarContainer.appendChild(btn);
+    });
+}
+
+// Helper function to update upgrade buttons
+function updateUpgradeButton(pathIndex, upgradeNameId, upgradePriceId, upgradeButtonId, data) {
+    const upgradeName = document.getElementById(upgradeNameId);
+    const upgradePrice = document.getElementById(upgradePriceId);
+    const upgradeButton = document.getElementById(upgradeButtonId);
+
+    const pickedPaths = selectedTower.upgradePath.filter(level => level > 0).length;
+    const hasPrimaryMaxUpgrade = selectedTower.upgradePath.some(level => level >= PRIMARY_MAX_UPGRADE_LEVEL);
+
+    if (selectedTower.upgradePath[pathIndex] >= PRIMARY_MAX_UPGRADE_LEVEL) {
+        upgradeName.innerText = 'Max Upgrade Reached';
+        upgradePrice.innerText = '';
+        upgradeButton.onclick = null;
+        upgradeName.style.display = 'block';
+    } else if (pickedPaths >= 2 && selectedTower.upgradePath[pathIndex] === 0) {
+        upgradeName.innerText = 'Upgrade Unavailable';
+        upgradePrice.innerText = '';
+        upgradeButton.onclick = null;
+        upgradeName.style.display = 'block';
+    } else if (selectedTower.upgradePath[pathIndex] >= SECONDARY_MAX_UPGRADE_LEVEL && hasPrimaryMaxUpgrade) {
+        upgradeName.innerText = 'Max Upgrade Reached (Secondary)';
+        upgradePrice.innerText = '';
+        upgradeButton.onclick = null;
+        upgradeName.style.display = 'block';
+    } else {
+        const upgradeData = data.upgrades[`path${pathIndex + 1}`][selectedTower.upgradePath[pathIndex]];
+        upgradeName.innerText = upgradeData.name;
+        upgradePrice.innerText = `${upgradeData.price} Bitpogs`;
+        upgradeButton.onclick = () => upgradeTower(selectedTower.index, pathIndex);
+        upgradeName.style.display = 'block';
+    }
+}
+
+// Helper function to update the program menu
+function updateProgramMenu(settings, functions) {
+    const programBox = document.getElementById('programBox');
+    const programWorkspace = document.getElementById('programWorkspace');
+
+    if (selectedTower.userCode != null) {
+        if (settings.programBlocks) {
+            // Show programWorkspace and hide programBox
+            programWorkspace.style.display = 'block';
+            programBox.style.display = 'none';
+
+            // Check if the toolbox already exists
+            let toolbox = document.getElementById('toolbox');
+            if (!toolbox) {
+                toolbox = document.createElement('xml');
+                toolbox.setAttribute('id', 'toolbox');
+                Object.keys(functions).forEach(funcName => {
+                    Blockly.Blocks[funcName] = {
+                        init: function () {
+                            this.appendDummyInput()
+                                .appendField(funcName);
+                            this.setColour(230);
+                            this.setTooltip('');
+                            this.setHelpUrl('');
+                        }
+                    };
+
+                    const block = document.createElement('block');
+                    block.setAttribute('type', funcName);
+                    toolbox.appendChild(block);
+                });
+                document.body.appendChild(toolbox); // Add the toolbox to the DOM
+            }
+
+            // Get the existing workspace or initialize it
+            let workspace = Blockly.getMainWorkspace();
+            if (!workspace) {
+                workspace = Blockly.inject('programWorkspace', {
+                    toolbox: toolbox
+                });
+            } else {
+                workspace.clear(); // Clear the existing workspace
+                try {
+                    workspace.updateToolbox(toolbox); // Update the toolbox
+                    workspace.resize();
+                } catch (error) {
+                    console.error('Error updating Blockly toolbox:', error);
+                }
+            }
+
+            // Load block-based code into the Blockly workspace
+            const xml = Blockly.Xml.textToDom(selectedTower.userCode.program);
+            Blockly.Xml.domToWorkspace(xml, workspace);
+        } else {
+            // Show programBox and hide programWorkspace
+            programBox.style.display = 'block';
+            programWorkspace.style.display = 'none';
+
+            // Display normal code in the program menu
+            const workspace = Blockly.getMainWorkspace();
+            workspace.clear();
+            programBox.value = selectedTower.userCode.program;
+
+            // Add text-based buttons
+            updateToolbarButtons([
+                { text: 'Run Program', onclick: 'runProgram()' },
+                { text: 'Clear Program', onclick: 'clearProgram()' },
+                { text: 'Save Program', onclick: 'saveProgram()' },
+                { text: 'Load A Program', onclick: 'loadProgram()' },
+            ]);
+        }
+    } else {
+        if (settings.programBlocks) {
+            // Show programWorkspace and hide programBox
+            programWorkspace.style.display = 'block';
+            programBox.style.display = 'none';
+
+            // Define the toolbox content as an XML element
+            const toolboxContent = `
+<xml id="toolbox">
+    <category name="Category 1" colour="120">
+        <block type="test_block"></block>
+    </category>
+    <category name="Category 2" colour="230">
+        <block type="test_block"></block>
+    </category>
+</xml>
+`;
+
+            // Initialize the workspace with the toolbox
+            const workspace = Blockly.inject('programWorkspace', {
+                toolbox: Blockly.utils.xml.textToDom(toolboxContent)
+            });
+
+            // Resize the workspace to fit the container
+            workspace.resize();
+
+            // Add custom blocks
+            Object.keys(functions).forEach(funcName => {
+                Blockly.Blocks[funcName] = {
+                    init: function () {
+                        this.appendDummyInput()
+                            .appendField(funcName);
+                        this.setColour(230);
+                        this.setTooltip('');
+                        this.setHelpUrl('');
+                    }
+                };
+
+                const block = document.createElement('block');
+                block.setAttribute('type', funcName);
+                const toolboxXml = Blockly.utils.xml.textToDom(toolboxContent);
+                toolboxXml.appendChild(block);
+            });
+        } else {
+            // Show programBox and hide programWorkspace
+            programBox.style.display = 'block';
+            programWorkspace.style.display = 'none';
+
+            // Clear the program menu
+            programBox.value = '';
+
+            // Add text-based buttons
+            updateToolbarButtons([
+                { text: 'Run Program', onclick: 'runProgram()' },
+                { text: 'Clear Program', onclick: 'clearProgram()' },
+                { text: 'Save Program', onclick: 'saveProgram()' },
+                { text: 'Load A Program', onclick: 'loadProgram()' },
+            ]);
+        }
+    }
+}
+
 socket.on('gameData', (data) => {
     currentGrid = data.gridData.grid;
     currentRows = data.gridData.rows;
@@ -530,87 +746,131 @@ socket.on('gameData', (data) => {
     }
 });
 
-socket.on('towerSelected', (data) => {
-    const towerMenu = document.getElementById('towerMenu');
-    const programMenu = document.getElementById('programBox');
+socket.on('settingsData', (data) => {
+    var settings = data
+    console.log(settings);
 
+    const settingsPage = document.getElementById('settingsPage');
+
+    settingsPage.innerHTML = ''; // Clear existing settings
+
+    Object.keys(settings).forEach(settingKey => {
+        const settingContainer = document.createElement('div');
+        settingContainer.className = 'setting-container';
+
+        const settingLabel = document.createElement('label');
+        settingLabel.innerText = settingKey;
+        settingLabel.htmlFor = settingKey;
+        settingLabel.style.display = 'block';
+        settingLabel.style.marginBottom = '5px';
+
+        const settingInput = document.createElement('input');
+        settingInput.id = settingKey;
+        settingInput.type = typeof settings[settingKey] === 'boolean' ? 'checkbox' : 'text';
+        settingInput.value = settings[settingKey];
+        if (typeof settings[settingKey] === 'boolean') {
+            settingInput.checked = settings[settingKey];
+        }
+        settingInput.style.marginBottom = '10px';
+
+        settingInput.addEventListener('change', () => {
+            const newValue = settingInput.type === 'checkbox' ? settingInput.checked : settingInput.value;
+            socket.emit('updateSetting', { key: settingKey, value: newValue });
+        });
+
+        const settingResetButton = document.createElement('button');
+        settingResetButton.innerText = 'Reset';
+        settingResetButton.style.marginLeft = '10px';
+        settingResetButton.addEventListener('click', () => {
+            socket.emit('resetSetting', settingKey);
+            settingInput.value = settings[settingKey];
+            if (typeof settings[settingKey] === 'boolean') {
+                settingInput.checked = settings[settingKey];
+            }
+        });
+
+        const settingSubmitButton = document.createElement('button');
+        settingSubmitButton.innerText = 'Save Settings';
+        settingSubmitButton.style.marginLeft = '10px';
+        settingSubmitButton.addEventListener('click', () => {
+            const newValue = settingInput.type === 'checkbox' ? settingInput.checked : settingInput.value;
+            const updatedSettings = {};
+            const settingInputs = settingsPage.querySelectorAll('input');
+            settingInputs.forEach(input => {
+                const key = input.id;
+                const value = input.type === 'checkbox' ? input.checked : input.value;
+                updatedSettings[key] = value;
+            });
+            socket.emit('updateSettings', updatedSettings);
+        });
+
+
+        const returnButton = document.createElement('button');
+        returnButton.innerText = 'Back';
+        returnButton.style.marginLeft = '10px';
+        returnButton.addEventListener('click', () => {
+            const optionsButton = document.createElement('button');
+            optionsButton.innerText = 'Options';
+            optionsButton.style.marginLeft = '10px';
+            optionsButton.addEventListener('click', () => {
+                socket.emit('getSettings');
+            });
+            const settingsButton = document.createElement('button');
+            settingsButton.innerText = 'Return';
+            settingsButton.style.marginLeft = '10px';
+            settingsButton.addEventListener('click', () => {
+                settingsMenu.style.opacity = '0';
+                settingsPage.style.transform = 'translateY(-100%)';
+                setTimeout(() => {
+                    settingsMenu.style.display = 'none';
+                    settingsPage.style.display = 'none';
+                }, 300); // Match the transition duration
+            });
+            settingsPage.innerHTML = ''; // Clear existing settings
+            settingsPage.appendChild(settingsButton);
+            settingsPage.appendChild(optionsButton);
+        });
+
+
+        settingContainer.appendChild(settingLabel);
+        settingContainer.appendChild(settingInput);
+        settingContainer.appendChild(settingResetButton);
+        settingContainer.appendChild(settingSubmitButton);
+        settingContainer.appendChild(returnButton);
+        settingsPage.appendChild(settingContainer);
+    });
+});
+
+// Main socket event handler
+socket.on('towerSelected', (data) => {
     if (data != null) {
         if (selectedTower == null) {
             selectedTower = data.tower;
-            upgradePaths = data.upgrades
-            
-            const towerName = document.getElementById('towerName');
-            towerName.innerText = `${selectedTower.name} Tower`;
+            upgradePaths = data.upgrades;
+            settings = data.settings;
+            functions = data.functions;
 
-            // Update the tower stats
-            const towerDamage = document.getElementById('towerDamage');
-            const towerRange = document.getElementById('towerRange');
-            const towerFireRate = document.getElementById('towerFireRate');
-            towerDamage.innerText = `Damage: ${selectedTower.damage}`;
-            towerRange.innerText = `Range: ${selectedTower.range}`;
-            towerFireRate.innerText = `Fire Rate: ${selectedTower.fireRate}`;
+            // Update tower details
+            document.getElementById('towerName').innerText = `${selectedTower.name} Tower`;
+            document.getElementById('towerDamage').innerText = `Damage: ${selectedTower.damage}`;
+            document.getElementById('towerRange').innerText = `Range: ${selectedTower.range}`;
+            document.getElementById('towerFireRate').innerText = `Fire Rate: ${selectedTower.fireRate}`;
 
-            // Update the upgrade buttons directly
-            const primaryMaxUpgradeLevel = 3; // Maximum level for the primary path
-            const secondaryMaxUpgradeLevel = 2; // Maximum level for secondary paths
-
-            // Count the number of paths already picked
-            const pickedPaths = selectedTower.upgradePath.filter(level => level > 0).length;
-
-            // Check if any path has reached the primary max upgrade level
-            const hasPrimaryMaxUpgrade = selectedTower.upgradePath.some(level => level >= primaryMaxUpgradeLevel);
-
-            // Helper function to update upgrade buttons
-            const updateUpgradeButton = (pathIndex, upgradeNameId, upgradePriceId, upgradeButtonId) => {
-                const upgradeName = document.getElementById(upgradeNameId);
-                const upgradePrice = document.getElementById(upgradePriceId);
-                const upgradeButton = document.getElementById(upgradeButtonId);
-
-                if (selectedTower.upgradePath[pathIndex] >= primaryMaxUpgradeLevel) {
-                    // If the path has reached the primary max upgrade level
-                    upgradeName.innerText = 'Max Upgrade Reached';
-                    upgradePrice.innerText = '';
-                    upgradeButton.onclick = null;
-                    upgradeName.style.display = 'block';
-                } else if (pickedPaths >= 2 && selectedTower.upgradePath[pathIndex] === 0) {
-                    upgradeName.innerText = 'Upgrade Unavailable';
-                    upgradePrice.innerText = '';
-                    upgradeButton.onclick = null;
-                    upgradeName.style.display = 'block';
-                } else if (selectedTower.upgradePath[pathIndex] >= secondaryMaxUpgradeLevel && hasPrimaryMaxUpgrade) {
-                    // If the path has reached the secondary max upgrade level and one path is at primary max
-                    upgradeName.innerText = 'Max Upgrade Reached (Secondary)';
-                    upgradePrice.innerText = '';
-                    upgradeButton.onclick = null;
-                    upgradeName.style.display = 'block';
-                } else {
-                    // Otherwise, display the upgrade cost and enable the button
-                    upgradeName.innerText = `${data.upgrades[`path${pathIndex + 1}`][selectedTower.upgradePath[pathIndex]].name}`;
-                    upgradePrice.innerText = `${data.upgrades[`path${pathIndex + 1}`][selectedTower.upgradePath[pathIndex]].price} Bitpogs`;
-                    upgradeButton.onclick = () => upgradeTower(selectedTower.index, pathIndex);
-                    upgradeName.style.display = 'block';
-                }
-            };
-
-            // Update each upgrade path
-            updateUpgradeButton(0, 'upgradeName1', 'upgradePrice1', 'upgradeButton1');
-            updateUpgradeButton(1, 'upgradeName2', 'upgradePrice2', 'upgradeButton2');
-            updateUpgradeButton(2, 'upgradeName3', 'upgradePrice3', 'upgradeButton3');
-            updateUpgradeButton(3, 'upgradeName4', 'upgradePrice4', 'upgradeButton4');
+            // Update upgrade buttons
+            updateUpgradeButton(0, 'upgradeName1', 'upgradePrice1', 'upgradeButton1', data);
+            updateUpgradeButton(1, 'upgradeName2', 'upgradePrice2', 'upgradeButton2', data);
+            updateUpgradeButton(2, 'upgradeName3', 'upgradePrice3', 'upgradeButton3', data);
+            updateUpgradeButton(3, 'upgradeName4', 'upgradePrice4', 'upgradeButton4', data);
 
             // Update the program menu
-            if (selectedTower.userCode != null) {
-                programMenu.value = selectedTower.userCode.program;
-            } else {
-                programMenu.value = '';
-            }
+            updateProgramMenu(settings, functions);
 
             // Show the tower menu
             towerMenu.style.transition = 'transform 0.3s ease-in';
             towerMenu.style.transform = 'translate(0, 0)';
         } else {
+            // Deselect the tower
             selectedTower = null;
-            const towerMenu = document.getElementById('towerMenu');
             towerMenu.style.transition = 'transform 0.3s ease-out';
             towerMenu.style.transform = 'translate(-100%, 0)';
         }

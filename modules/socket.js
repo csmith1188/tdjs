@@ -609,20 +609,21 @@ class Tower {
         }
 
         // Apply upgrades from all active paths
-        for (let pathIndex = 0; pathIndex < upgradePaths.length; pathIndex++) {
-            const level = upgradePath[pathIndex];
+        for (const [pathKey, pathArray] of Object.entries(upgradePaths[presetTower])) {
+            const pathIndex = parseInt(pathKey.replace('path', '')) - 1;
+            const level = this.upgradePath[pathIndex];
             if (level > 0) {
-                const pathArray = upgradePaths[presetTower][`path${pathIndex + 1}`];
-                for (let i = 0; i < level; i++) {
-                    const upgrade = pathArray[i];
-                    this.range += upgrade.range || 0;
-                    this.damage += upgrade.damage || 0;
-                    this.fireRate += upgrade.fireRate || 0;
-                    this.price += upgrade.price || 0;
-                    this.moneyRate += upgrade.moneyRate || 0;
-                }
+            for (let i = 0; i < level; i++) {
+                const upgrade = pathArray[i];
+                this.range += upgrade.range || 0;
+                this.damage += upgrade.damage || 0;
+                this.fireRate += upgrade.fireRate || 0;
+                this.price += upgrade.price || 0;
+            }
             }
         }
+        console.log(`Tower stats: range=${this.range}, damage=${this.damage}, fireRate=${this.fireRate}, price=${this.price}`);
+        
 
         this.shootLocation = null;
         this.damageCount = 0;
@@ -1402,7 +1403,7 @@ function connection(socket, io) {
                         user.money -= upgradeCost;
                         tower.upgradePath[pathIndex]++;
                         tower.upgradeLevel++;
-                        tower.updateStats(tower.name.toLowerCase());
+                        tower.updateStats(tower.name);
                         console.log(`Tower upgraded to level ${tower.upgradePath[pathIndex]} on path ${pathIndex + 1}`);
 
                         // If the tower reaches tier 3 on this path, lock all other paths to tier 2
@@ -1575,7 +1576,7 @@ let gameLoop = setInterval(() => {
                 }
             }
         }
-        
+
         // Update projectiles
         for (let i = user.projectiles.length - 1; i >= 0; i--) {
             let projectile = user.projectiles[i];

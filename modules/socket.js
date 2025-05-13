@@ -832,7 +832,17 @@ class Tower {
     }
 }
 
-// Projectiles
+// PPPPPPPP    RRRRRRRR     OOOOOOO    JJJJJJJJJJJ   EEEEEEEEEE    CCCCCCC    TTTTTTTTT   IIIIIIIII   LLL          EEEEEEEEEE    SSSSSSSS
+// PPP   PPP   RRR   RRR   OOO   OOO   JJJJJJJJJJJ   EEEEEEEEEE   CCC   CCC   TTTTTTTTT      III      LLL          EEEEEEEEEE   SSSSSSSS 
+// PPP   PPP   RRR   RRR   OOO   OOO        JJJ      EEE          CCC   CCC      TTT         III      LLL          EEE          SSS      
+// PPPPPPPP    RRRRRRRR    OOO   OOO        JJJ      EEEEEEE      CCC            TTT         III      LLL          EEEEEEE       SSSSSSS 
+// PPP         RRR   RRR   OOO   OOO   JJJ  JJJ      EEE          CCC   CCC      TTT         III      LLL          EEE                SSS
+// PPP         RRR   RRR   OOO   OOO   JJJ  JJJ      EEE          CCC   CCC      TTT         III      LLLLLLLLL    EEE           SSSSSSSS
+// PPP         RRR   RRR    OOOOOOO     JJJJJJ       EEEEEEEEEE    CCCCCCC       TTT      IIIIIIIII   LLLLLLLLL    EEEEEEEEEE   SSSSSSSS 
+
+
+// Projectile class
+// This class represents a projectile that can be fired by towers
 class Projectile {
     constructor(presetProjectile, userId, x, y, targetX, targetY, speed, damage, projectileType, color, size, pierce) {
         this.initialize(x, y, targetX, targetY, speed, damage, projectileType, color, userId, size, pierce);
@@ -954,6 +964,8 @@ class Projectile {
     }
 }
 
+// Projectile Pool class
+// This class creates a list of projectiles that can be reused to reduce memory usage
 class ProjectilePool {
     constructor(size) {
         this.pool = [];
@@ -1001,7 +1013,14 @@ class ProjectilePool {
     }
 }
 
-// Statuses
+//   SSSSSSSSS   TTTTTTTTT    AAAAAAA    TTTTTTTTT   UUU   UUU    SSSSSSSSS   EEEEEEEEEE    SSSSSSSSS
+//  SSSSSSSSS    TTTTTTTTT   AAA   AAA   TTTTTTTTT   UUU   UUU   SSSSSSSSS    EEEEEEEEEE   SSSSSSSSS 
+//  SSS             TTT      AAA   AAA      TTT      UUU   UUU   SSS          EEE          SSS       
+//   SSSSSSSS       TTT      AAAAAAAAA      TTT      UUU   UUU    SSSSSSSS    EEEEEE        SSSSSSSS 
+//         SSS      TTT      AAA   AAA      TTT      UUU   UUU          SSS   EEE                 SSS
+//   SSSSSSSSS      TTT      AAA   AAA      TTT      UUU   UUU    SSSSSSSSS   EEE           SSSSSSSSS
+//  SSSSSSSSS       TTT      AAA   AAA      TTT       UUUUUUU    SSSSSSSSS    EEEEEEEEEE   SSSSSSSSS 
+
 class Status {
     constructor(type, duration, effect, strength = 1) {
         this.type = type; // e.g., 'slow', 'boost', 'poison'

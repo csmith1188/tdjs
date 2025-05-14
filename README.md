@@ -3,9 +3,9 @@ Welcome to the tdjs README! I'm one of the developers here to tell you more abou
 RUNNING THE SERVER:
   In order for the server to run you need several packages, acorn, acorn-walk, blockly, connect-sqlite3, ejs, express, express-session, jsonwebtoken, and socket.io
 
-  I suggest that for you to have an easier time installing the packages you install the Node Package Manager (npm)
-  Once you have npm installed locate the app.js file and while focused on the app.js file run the command <npm i> (use what's inside the inequality signs) and all the required packages will be installed
-  Then after all the needed packages are installed you can use the command <node app.js> to launch the server, the server will run on your computer's ip address on port 3000
+  I suggest that for you to have an easier time installing the packages you install the Node Package Manager (npm),
+  once you have npm installed locate the app.js file and while focused on the app.js file run the command <npm i> (use what's inside the inequality signs) and all the required packages will be installed,
+  then after all the needed packages are installed you can use the command <node app.js> to launch the server, the server will run on your computer's ip address on port 3000
 
   After the server is running you can go to localhost:3000 (on YOUR computer) or <computer's ip address>:3000 to test tdjs (you can run the command <ipconfig> in a terminal to obtain your IP address)
 

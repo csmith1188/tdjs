@@ -1,19 +1,16 @@
-const vm = require('vm')
-const acorn = require('acorn')
-const walk = require('acorn-walk');
-const Blockly = require('blockly');
-const { log } = require('console');
-const { name } = require('ejs');
-const frameRate = 60;
+const vm = require('vm') // vm is a built-in Node.js module that provides a way to execute JavaScript code in a sandboxed environment, read the README for more info
+const Blockly = require('blockly'); // Blockly is a library for creating visual programming environments, read the README for more info
+const frameRate = 60; // The number of frames per second for the game
+// The Pathpoints are the points that the enemies will follow, they are in the format of { y: <y>, x: <x> } where y is the vertical position and x is the horizontal position
 const pathPoint = [{ y: 2, x: 0 }, { y: 2, x: 8 }, { y: 12, x: 8 }, { y: 12, x: 16 }, { y: 2, x: 16 }, { y: 2, x: 24 }, { y: 18, x: 24 }, { y: 18, x: 31 }];
 const pathPoint2 = [{ y: 2, x: 0 }, { y: 2, x: 25 }, { y: 6, x: 25 }, { y: 6, x: 8 }, { y: 10, x: 8 }, { y: 10, x: 16 }, { y: 14, x: 16 }, { y: 14, x: 24 }, { y: 18, x: 24 }, { y: 18, x: 31 }];
 const pathPoint3 = [{ y: 2, x: 0 }, { y: 2, x: 3 }, { y: 6, x: 3 }, { y: 6, x: 5 }, { y: 10, x: 5 }, { y: 10, x: 7 }, { y: 6, x: 7 }, { y: 6, x: 9 }, { y: 10, x: 9 }, { y: 10, x: 11 }, { y: 6, x: 11 }, { y: 6, x: 13 }, { y: 10, x: 13 }, { y: 10, x: 15 }, { y: 6, x: 15 }, { y: 6, x: 17 }, { y: 10, x: 17 }, { y: 10, x: 19 }, { y: 6, x: 19 }, { y: 6, x: 21 }, { y: 10, x: 21 }, { y: 10, x: 23 }, { y: 6, x: 23 }, { y: 6, x: 25 }, { y: 10, x: 25 }, { y: 10, x: 27 }, { y: 6, x: 27 }, { y: 6, x: 29 }, { y: 10, x: 29 }, { y: 10, x: 31 }, { y: 18, x: 31 }];
 const pathPoint4 = [{ y: 2, x: 0 }, { y: 2, x: 15 }, { y: 10, x: 15 }, { y: 10, x: 11 }, { y: 6, x: 11 }, { y: 6, x: 19 }, { y: 10, x: 19 }, { y: 10, x: 15 }, { y: 18, x: 15 }, { y: 18, x: 31 }];
 const pathPoint5 = [{ y: 2, x: 0 }, { y: 2, x: 15 }, { y: 10, x: 15 }, { y: 10, x: 11 }, { y: 6, x: 11 }, { y: 6, x: 19 }, { y: 2, x: 19 }, { y: 2, x: 15 }, { y: 18, x: 15 }, { y: 18, x: 31 }];
-const users = new Map();
-var ticks = 0;
+const users = new Map(); // Map to store user data, including enemies and towers
+var ticks = 0; // Variable to keep track of the game ticks
 
-// use the format of { enemyType: '<enemy name>', amount: #, spawnInterval: #, wait: # } inside of a list inside the waves list to make a section of a wave
+// use the format of { enemyType: '<enemy name>', amount: <integer>, spawnInterval: <integer in game ticks, use framrate to determine frames per second>, wait: <integer in game ticks, use framrate to determine frames per second> } inside of a list inside the waves list to make a section of a wave
 waves = [
     [
         { enemyType: 'skeleton', amount: 10, spawnInterval: 5, wait: 0 },
@@ -61,7 +58,7 @@ waves = [
 ];
 
 
-//all the upgrades avaliable for the towers
+// This is a list of upgrade paths for each tower type. Each path contains a list of upgrades, each with its own properties such as range, damage, fire rate, and price.
 const upgradePaths = {
     Basic: {
         path1: [
@@ -225,38 +222,40 @@ const upgradePaths = {
 // EEEEE   NNNNNN   EEEEE   MM M MM     YYY
 // EE      NN NNN   EE      MM   MM     YYY
 // EEEEE   NN  NN   EEEEE   MM   MM     YYY
+// This class is for the enemies, it contains all of the properties and methods for the enemies within the game
 class Enemy {
     constructor(enemyType, userIndex, options) {
         this.initialize(enemyType, userIndex, options);
     }
 
+    // This function initializes the enemy with the given type, user index, and options
     initialize(enemyType, userId, options) {
         this.x = 0;
         this.y = 2;
-        this.userId = userId; // Replace userIndex with userId
+        this.userId = userId; // The userId is used to identify the user that the enemy belongs to in the users Map
         this.enemyType = enemyType;
-        this.healthBorder = options.healthBorder || false;
-        this.distanceFromStart = 0;
-        this.statuses = []; // Array to store active statuses
+        this.distanceFromStart = 0; // This is used to determine how far the enemy is from the start of the path, this value increases as the enemy moves along the path using the enemy's speed
+        this.statuses = []; // Array to store active statuses, Statuses are used to apply effects to the enemy, such as slowing it down or poisoning it
         this.size = 32;
         this.currentIndex = 0;
         this.nextX = undefined;
         this.nextY = undefined;
 
-        // Initialize original stats and effective stats
+        // Initialize original stats and effective stats, effective stats are the stats that are used to determine the enemy's speed, health, and armor while the original stats are the base stats of the enemy
         this.updateStats();
         this.effectiveStats = {
             speed: this.speed,
-            armor: 0
+            armor: 0 // Armor is currently not used, but it can be used to reduce damage taken by the enemy or act as a shield to prevent the enemy's health from being reduced
         };
 
-        const user = users.get(this.userId);
-        if (user) {
+        const user = users.get(this.userId); // Get the user object from the users Map using the userId
+        if (user) { //confirms that the user exists
             user.enemies.push(this); // Add the enemy to the user's enemies array
         }
-        this.updatePosition();
+        this.updatePosition(); // Update the enemy's position in the user's enemies array
     }
 
+    // This function is used to reset the enemy's properties to their default values so it can be returned to the enemy pool to be reused later
     reset() {
         // Reset all properties to default values
         this.x = 0;
@@ -273,6 +272,8 @@ class Enemy {
         };
     }
 
+
+    // This function is used to add a status to the enemy, it checks if the status already exists and compares the strength and duration of the new status with the existing one
     addStatus(status, customDuration = null, strength = 1) {
         // Check if the status already exists
         const existingStatusIndex = this.statuses.findIndex(s => s.type === status.type);
@@ -308,7 +309,7 @@ class Enemy {
         }
 
         // If the status doesn't exist, add it
-        const clonedStatus = new Status(
+        const clonedStatus = new Status( //This creates a clone of the status object to prevent it from being modified globally, removing this functionality could cause issues with the game since the duration will be affected globally by all enemies without cloning
             status.type,
             customDuration !== null ? customDuration : status.duration,
             status.effect,
@@ -317,6 +318,7 @@ class Enemy {
         this.statuses.push(clonedStatus);
     }
 
+    // This function is used to update the enemy's statuses, it applies the status effects and decrements their duration
     updateStatuses() {
         // Reset effective stats to original stats before applying statuses
         this.effectiveStats.speed = this.speed;
@@ -330,6 +332,8 @@ class Enemy {
         });
     }
 
+
+    // This function is used to update the enemy's original stats based on the enemy type, it sets the health, max health, speed, and color of the enemy
     updateStats() {
         // Set original stats based on enemy type
         switch (this.enemyType) {
@@ -392,16 +396,18 @@ class Enemy {
 
         }
 
-        this.updateHealthBorder();
+        // this.updateHealthBorder(); //This is no longer being used
     }
 
-    updateHealthBorder() {
-        this.healthPercentage = this.health / this.maxHealth;
-        const green = Math.min(255, Math.max(0, 255 * (this.healthPercentage * 2)));
-        const red = Math.min(255, Math.max(0, 255 * (2 - this.healthPercentage * 3)));
-        this.borderColor = `rgb(${red}, ${green}, 0)`;
-    }
+    // updateHealthBorder() {
+    //     this.healthPercentage = this.health / this.maxHealth;
+    //     const green = Math.min(255, Math.max(0, 255 * (this.healthPercentage * 2)));
+    //     const red = Math.min(255, Math.max(0, 255 * (2 - this.healthPercentage * 3)));
+    //     this.borderColor = `rgb(${red}, ${green}, 0)`;
+    // }
 
+
+    // This function is used to update the enemy's position in the user's enemies array, it finds the enemy in the user's enemies array and updates its position
     updatePosition() {
         const user = users.get(this.userId);
         if (user) {
@@ -412,6 +418,8 @@ class Enemy {
         }
     }
 
+
+    // This function is used to move the enemy along the path, it checks if the enemy has reached the next point and updates its position accordingly
     move() {
         this.updateStatuses(); // Update statuses before moving
 
@@ -456,6 +464,7 @@ class Enemy {
     }
 }
 
+// This class is to create the enemy pool, it is used to create a pool of enemies that can be reused instead of creating new enemies every time which will help prevent memory leaks and improve performance
 class EnemyPool {
     constructor(size) {
         this.pool = [];
@@ -508,7 +517,7 @@ class EnemyPool {
 //     TTT     OO   OO   WW W WW   EEEE    RRRR     SSS 
 //     TTT     OOO OOO   WW W WW   EE      R   R       S
 //     TTT      OOOOO     WW WW    EEEEE   R   R    SSS 
-
+// This class is for the towers, it contains all of the properties and methods for the towers within the game
 class Tower {
     constructor(presetTower, user, options, y, x, range, damage, fireRate, targetingType, projectileType) {
         this.x = x;
@@ -535,6 +544,7 @@ class Tower {
         this.targetingType = 'first';
     }
 
+    // This function is used to update the tower's original stats based on the preset tower type, it sets the size, color, range, damage, fire rate, and name of the tower
     updateStats(presetTower) {
         // Start with default stats for the base tower
         switch (presetTower) {
@@ -608,7 +618,7 @@ class Tower {
 
         }
 
-        // Apply upgrades from all active paths
+        // This section apllies upgrades, from the upgradePaths object, to the tower based on the chosen upgrade path and tower type
         for (const [pathKey, pathArray] of Object.entries(upgradePaths[presetTower])) {
             const pathIndex = parseInt(pathKey.replace('path', '')) - 1;
             const level = this.upgradePath[pathIndex];
@@ -623,15 +633,15 @@ class Tower {
                 }
             }
         }
-        console.log(`Tower stats: range=${this.range}, damage=${this.damage}, fireRate=${this.fireRate}, price=${this.price}`);
 
 
-        this.shootLocation = null;
+        this.shootLocation = null; //Not used anymore, but it was used to determine the location of the projectile when it was shot
         this.damageCount = 0;
-        this.lastShotTime = 0;
+        this.lastShotTime = 0; //Used to determine when the tower can shoot again
         this.lastMoneyTime = 0;
     }
 
+    // This function is used to handle when a user chooses an upgrade path, it checks if the path has already been chosen and allows the user to choose the path if it hasn't been chosen yet
     chooseUpgradePath(pathIndex) {
         if (upgradePath[pathIndex] === 0) {
             // If the path has not been chosen yet, allow the user to choose this path
@@ -641,6 +651,7 @@ class Tower {
         }
     }
 
+    // This function is used to handle when a user upgrades the tower, it checks if the user has enough money to upgrade the tower and applies the upgrade if they do, it allows for two paths to be picked, however only one path can be upgraded to level 3 and the other path will be limited to level 2
     upgrade(pathIndex) {
         const user = users.get(this.userId);
         if (user) {
@@ -680,6 +691,7 @@ class Tower {
         }
     }
 
+    // This function is used to add statuses to the tower, it checks if the status already exists and compares the strength and duration of the new status with the existing one
     addStatus(status, customDuration = null, strength = 1) {
         // Clone the status before adding it
         const clonedStatus = new Status(
@@ -691,6 +703,7 @@ class Tower {
         this.statuses.push(clonedStatus);
     }
 
+    // This function is used to update the tower's statuses, it applies the status effects and decrements their duration
     updateStatuses() {
         // Reset effective stats to original stats before applying statuses
         this.effectiveStats.range = this.range;
@@ -704,16 +717,19 @@ class Tower {
         });
     }
 
+    // This function is used to handle the code given by the user to find a target, it uses the vm module to run the code in a sandboxed environment, it also sanitizes the data to prevent infinite recursion
     findTarget(ticks) {
         this.updateStatuses(); // Update statuses before finding a target
 
         this.currentTime = ticks;
 
+        // Check if the user has a code to run and gets the user's enemies array
         this.getEnemies = () => {
             const user = users.get(this.userId);
             return user ? user.enemies : [];
         };
 
+        // Find the first enemy in range
         this.findFirst = () => {
             let farthestEnemy = null;
             let maxDistance = -Infinity;
@@ -729,6 +745,7 @@ class Tower {
             return farthestEnemy;
         };
 
+        // Find all the enemies in range
         this.getEnemiesInRange = () => {
             const enemies = this.getEnemies();
             const enemiesInRange = [];
@@ -741,6 +758,7 @@ class Tower {
             return enemiesInRange;
         };
 
+        // Check if the enemy is in range
         this.inRange = (enemy) => {
             const dx = enemy.x - this.x;
             const dy = enemy.y - this.y;
@@ -748,16 +766,20 @@ class Tower {
             return distance <= this.effectiveStats.range;
         };
 
+        // Check if the tower can shoot
         this.canShoot = () => {
             return this.currentTime - this.lastShotTime >= (frameRate / this.effectiveStats.fireRate);
         };
 
+
+        //Runs the user code if it exists and the script is not already running
         if (this.userCode && !this.scriptIsRunning) {
             this.scriptIsRunning = true;
 
-            let script = new vm.Script(this.userCode.program);
-            let context = vm.createContext(this.userCode.sandbox);
+            let script = new vm.Script(this.userCode.program); // Create a new script instance
+            let context = vm.createContext(this.userCode.sandbox); // Create a new context for the script
 
+            //attempts to sanitize the data to prevent infinite recursion
             try {
                 const sanitizeData = (data, seen = new WeakSet()) => {
                     if (typeof data !== 'object' || data === null) {
@@ -790,7 +812,7 @@ class Tower {
 
                 this.userCode.sandbox = sanitizeData(this.userCode.sandbox);
 
-                script.runInContext(context, { timeout: 50 }); // Increased timeout to 50ms
+                script.runInContext(context, { timeout: 50 }); // runs the user's code in a sandboxed environment using a timeout to prevent infinite loops
             } catch (err) {
                 console.error('Error running script:', err);
             } finally {
@@ -800,6 +822,7 @@ class Tower {
         }
     }
 
+    // This function is used to make the tower shoot a projectile at the target, it checks if the target is valid and if the tower can shoot, it creates a new projectile and adds it to the user's projectiles array
     shoot(target, currentTime) {
         const enemyInstance = target;
 
@@ -812,6 +835,7 @@ class Tower {
         this.shootLocation = { x: enemyInstance.x, y: enemyInstance.y };
 
         const user = users.get(this.userId);
+        // Check if the user exists and creates a new projectile moving towards the target
         if (user) {
             const projectile = projectilePool.getProjectile(
                 this.x,
@@ -848,6 +872,7 @@ class Projectile {
         this.initialize(x, y, targetX, targetY, speed, damage, projectileType, color, userId, size, pierce);
     }
 
+    // This function initializes the projectile with the given parameters
     initialize(x, y, targetX, targetY, speed, damage, projectileType, color, userId, size, pierce) {
         this.x = x;
         this.y = y;
@@ -868,19 +893,21 @@ class Projectile {
         this.noHitList = []; // Reset the list of enemies that the projectile has already hit
     }
 
+    // This function is used to reset the projectile's properties to their default values so it can be returned to the projectile pool to be reused later
     reset() {
         users.get(this.userId).projectiles.splice(users.get(this.userId).projectiles.indexOf(this), 1); // Remove from user's projectiles
         projectilePool.pool.push(this);
         projectilePool.activeProjectiles.delete(this); // Remove from active projectiles
     }
 
+    // This function is used to move the projectile towards its target, it calculates the direction vector and updates the projectile's position
     move() {
-        if (!this.directionX && !this.directionY) {
+        if (!this.directionX && !this.directionY) { // confirms there is no direction vector already
             const dx = this.targetX - this.x;
             const dy = this.targetY - this.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
 
-            if (distance === 0) {
+            if (distance === 0) { // If the target is reached, reset the projectile
                 this.reset();
                 return;
             }
@@ -914,8 +941,7 @@ class Projectile {
 
             const distanceToPath = this.distanceToLineSegment(
                 this.x, this.y, newX, newY, closestEnemy.x, closestEnemy.y
-            );
-            console.log(`Distance to path: ${distanceToPath}, Projectile radius: ${projectileRadius}`);
+            ); // Calculate distance from the closest enemy to the raycast line
 
             if (distanceToPath <= projectileRadius) {
                 if (!this.noHitList.includes(closestEnemy)) {
@@ -976,6 +1002,7 @@ class ProjectilePool {
         }
     }
 
+    // This function is used to get a projectile from the pool, it checks if there are any projectiles available in the pool and returns one if there is, otherwise it returns null
     getProjectile(x, y, targetX, targetY, speed, damage, type, color, userId, pierce) {
         if (this.pool.length > 0) {
             const projectile = this.pool.pop();
@@ -1020,7 +1047,7 @@ class ProjectilePool {
 //         SSS      TTT      AAA   AAA      TTT      UUU   UUU          SSS   EEE                 SSS
 //   SSSSSSSSS      TTT      AAA   AAA      TTT      UUU   UUU    SSSSSSSSS   EEE           SSSSSSSSS
 //  SSSSSSSSS       TTT      AAA   AAA      TTT       UUUUUUU    SSSSSSSSS    EEEEEEEEEE   SSSSSSSSS 
-
+// The Status class is used to create the status effects that can be applied to enemies and towers, it contains the properties and methods for the status effects
 class Status {
     constructor(type, duration, effect, strength = 1) {
         this.type = type; // e.g., 'slow', 'boost', 'poison'
@@ -1029,6 +1056,7 @@ class Status {
         this.strength = strength; // Strength of the effect
     }
 
+    // This function is used to apply the status effect to the target, it takes the target's effective stats and applies the effect to them
     apply(target) {
         // Apply the effect to the target's effective stats
         if (this.effect) {
@@ -1036,15 +1064,19 @@ class Status {
         }
     }
 
+    // This function is used to decrement the duration of the status effect, it reduces the duration by 1 tick
     decrementDuration() {
         this.duration--; // Reduce the duration by 1 tick
     }
 
+    // This function is used to check if the status effect has expired, it returns true if the duration is less than or equal to 0
     isExpired() {
         return this.duration <= 0; // Check if the status has expired
     }
 }
-
+// This section creates the status effects that can be applied to enemies and towers, it creates the slow, boost, and poison status effects
+// To create a new status effect, create a new instance of the Status class and pass in the type, duration, effect function, and strength
+// const <statusName> = new Status(<type>, <duration>, <effect>, <strength>);
 const slowStatus = new Status(
     'slow',
     100, // Default duration in ticks
@@ -1076,6 +1108,7 @@ const poisonStatus = new Status(
 // GGG  GGGGGG   RRR  RRR        III       DDD    DDD
 //  GGG   GGG    RRR   RRR       III       DDD    DDD       
 //   GGGGGGG     RRR   RRR       III       DDDDDDDDD
+// This function initializes the grid with the given number of rows and columns, it creates a 2D array of objects with properties for each cell
 function initializeGrid(rows, cols) {
     const grid = [];
     for (let i = 0; i < rows; i++) {
@@ -1088,10 +1121,12 @@ function initializeGrid(rows, cols) {
     return grid;
 }
 
+// This function calculates the path for the grid, it sets the start and end points and marks the path between them
 function calculatePath(grid) {
     grid[2][0].isStart = true;
     grid[18][31].isEnd = true;
 
+    // This logic uses the pathpoints to create the path, it creates a list of points that the path will go through
     for (let i = 0; i < pathPoint.length - 1; i++) {
         const start = pathPoint[i];
         const end = pathPoint[i + 1];
@@ -1118,7 +1153,8 @@ function calculatePath(grid) {
 // O   O     T     HHHHH    EEEE     RRRR
 // O   O     T     H   H    EE       R  R
 //  OOO      T     H   H    EEEEE    R   R
-
+// This section handles anything not related to the above sections
+// This function handles the connection of a user to the server, it creates a new user object if the user doesn't exist and initializes their grid
 function connection(socket, io) {
     global.socket = socket;
     global.io = io;
@@ -1169,6 +1205,7 @@ function connection(socket, io) {
         });
     }
 
+    // This function handles the placement of a tower, it checks if the placement is valid and adds the tower to the user's towers array
     socket.on('towerPlace', placementInformation => {
         let user = users.get(socket.id);
         if (user) {
@@ -1187,6 +1224,7 @@ function connection(socket, io) {
         }
     });
 
+    // This function handles the selection of a tower, it checks if the tower exists and emits the tower's data to the client
     socket.on('towerSelect', towerSelect => {
         let user = users.get(socket.id);
         if (user) {
@@ -1203,13 +1241,15 @@ function connection(socket, io) {
         }
     });
 
-    const acorn = require('acorn');
-    const { simple: walkSimple } = require('acorn-walk');
+    const acorn = require('acorn'); // the acorn library is used to parse the user's code into an AST, read the README for more information
+    const { simple: walkSimple } = require('acorn-walk'); // the acorn-walk library is used to walk through the AST and check for prohibited patterns, read the README for more information
 
+    // This function handles the execution of the user's program, it checks if the program is valid and executes it in a sandboxed environment
     socket.on('userProgram', (program, tower) => {
         let user = users.get(socket.id);
         if (user) {
             const towerIndex = tower;
+            //Creates a list of allowed functions that the user can use in their code
             const allowedFunctions = {
                 getEnemies: () => user.towers[towerIndex].getEnemies(),
                 inRange: enemy => user.towers[towerIndex].inRange(enemy),
@@ -1218,17 +1258,19 @@ function connection(socket, io) {
                 shoot: target => user.towers[towerIndex].shoot(target, ticks),
             };
 
+            // Creates a list of prohibited keywords that the user cannot use in their code
             const prohibitedKeywords = [
                 'String', 'fromCharCode', 'eval', 'Function', 'constructor', 'global', 'process',
                 'Buffer', 'require', 'setTimeout', 'setInterval', 'Reflect', 'Proxy', 'vm',
                 'child_process', 'console', 'this'
             ];
 
+            //Attempts to execute the user's code, if it fails it sends an error message to the client
             try {
                 let codeToExecute = program;
 
                 // Check if the user is using block-based code
-                if (user.settings.programBlocks) {
+                if (user.settings.programBlocks) { //Checks if the user is using block-based code
                     console.log('Processing block-based code...');
 
                     // Convert block-based code (XML or JSON) to JavaScript
@@ -1337,13 +1379,7 @@ function connection(socket, io) {
                     child_process: undefined,
                 };
 
-                // Execute the program in the sandbox
-                const vm = require('vm');
-                const script = new vm.Script(codeToExecute);
-                const context = vm.createContext(sandbox);
-                script.runInContext(context, { timeout: 250 });
-
-                // Save the program to the tower
+                // Save the program to the tower to be executed later
                 user.towers[tower].userCode = { program: codeToExecute, sandbox };
                 console.log('Program executed successfully:', codeToExecute);
             } catch (error) {
@@ -1358,6 +1394,7 @@ function connection(socket, io) {
         }
     });
 
+    // This handles sending the client a list of towers that can be placed, it sends the list of towers to the client
     socket.on('getTowerList', () => {
         const towerTypes = [
             { name: 'Basic', price: 10, range: 4, damage: 2, fireRate: 2 },
@@ -1371,6 +1408,7 @@ function connection(socket, io) {
         socket.emit('towerList', towerTypes);
     });
 
+    // This function handles the placement of a tower, it checks if the placement is valid and adds the tower to the user's towers array
     socket.on('placingTower', (tower) => {
         const towerName = tower.name;
         const towerSwitch = Tower.toString().match(/switch\s*\(presetTower\)\s*{([\s\S]*?)}/);
@@ -1387,6 +1425,7 @@ function connection(socket, io) {
         }
     })
 
+    // This function handles the upgrade of a tower, it checks if the upgrade is valid and upgrades the tower's stats
     socket.on('upgradeTower', ({ towerIndex, pathIndex }) => {
         let user = users.get(socket.id);
         if (user) {
@@ -1446,6 +1485,7 @@ function connection(socket, io) {
         }
     });
 
+    // This function handles the selling of a tower, it checks if the tower exists and removes it from the user's towers array
     socket.on('sellTower', (towerIndex) => {
         let user = users.get(socket.id);
         if (user) {
@@ -1460,6 +1500,7 @@ function connection(socket, io) {
         }
     });
 
+    // This handles the retrival of settings, it checks if the user exists and sends the settings to the client
     socket.on('getSettings', () => {
         let user = users.get(socket.id);
         if (user) {
@@ -1467,6 +1508,7 @@ function connection(socket, io) {
         }
     });
 
+    // This handles the update of settings, it checks if the user exists and updates the settings
     socket.on('updateSettings', (settings) => {
         let user = users.get(socket.id);
         if (user) {
@@ -1477,6 +1519,7 @@ function connection(socket, io) {
         }
     });
 
+    // This handles the start of a wave, it checks if the user exists and starts the wave given
     socket.on('startWave', waveIndex => {
         let user = users.get(socket.id);
         if (user && (waveIndex || waveIndex === 0)) {
@@ -1485,6 +1528,7 @@ function connection(socket, io) {
         }
     });
 
+    // This handles the sending of a wave, it checks if the user exists and sends the wave to the user
     socket.on('sendWave', () => {
         const user = users.get(userId);
         if (user) {
@@ -1495,6 +1539,7 @@ function connection(socket, io) {
         }
     })
 
+    // This handles restarting the game, it checks if the user exists and resets the game state
     socket.on('restartGame', () => {
         let user = users.get(socket.id);
         if (user) {
@@ -1510,6 +1555,7 @@ function connection(socket, io) {
         }
     });
 
+    // This handles spawning enemies, it checks if the user exists and spawns the enemies given
     socket.on('spawnEnemies', (enemyType, amount, spawnInterval, wait) => {
         let user = users.get(socket.id);
         if (user) {
@@ -1517,6 +1563,7 @@ function connection(socket, io) {
         }
     });
 
+    // this handles the disconnection of a user
     socket.on('disconnect', () => {
         console.log('A user disconnected,', socket.id);
     });
@@ -1555,6 +1602,13 @@ function adjustPoolSizes() {
     projectilePoolSize = newProjectilePoolSize;
 }
 
+//    GGGGGGG     AAAAAAA    MMM      MMM   EEEEEEEEE      LLL          OOOOOOO     OOOOOOO    PPPPPPPP 
+//   GGG   GGG   AAA   AAA   MMMM    MMMM   EEEEEEEEE      LLL         OOO   OOO   OOO   OOO   PPP    PP
+//   GGG         AAA   AAA   MMMMMMMMMMMM   EEE            LLL         OOO   OOO   OOO   OOO   PPP    PP
+//   GGG  GGGG   AAAAAAAAA   MMM MMMM MMM   EEEEEE         LLL         OOO   OOO   OOO   OOO   PPPPPPPP 
+//   GGG   GGG   AAA   AAA   MMM  MM  MMM   EEE            LLL         OOO   OOO   OOO   OOO   PPP      
+//   GGG   GGG   AAA   AAA   MMM      MMM   EEE            LLLLLLLLL   OOO   OOO   OOO   OOO   PPP      
+//    GGGGGGG    AAA   AAA   MMM      MMM   EEEEEEEEE      LLLLLLLLL    OOOOOOO     OOOOOOO    PPP      
 let gameLoop = setInterval(() => {
     ticks++;
 

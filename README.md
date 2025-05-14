@@ -12,22 +12,22 @@ RUNNING THE SERVER:
 MODULE DETAILS:
   There are several modules used from the packages to run the server an here's more information on them
 
-  vm: vm is a module used by the server to generate a sandbox environment to prevent users from accessing other parts of the server that are critical to functionality, without vm the user could shut down the server
+  vm: vm is a module used by the server to generate a sandbox environment to prevent users from accessing other parts of the server that are critical to functionality, without vm the user could shut down the server,
   for more information read here: https://nodejs.org/api/vm.html
 
-  blockly: blockly is a module used so users can use block code to program the tower's targeting rather than having to use normal code
+  blockly: blockly is a module used so users can use block code to program the tower's targeting rather than having to use normal code,
   for more information read here: https://developers.google.com/blockly
 
-  acorn: acorn is a module used to parse the user's code when given to user to prevent malicious code
+  acorn: acorn is a module used to parse the user's code when given to user to prevent malicious code,
   for more information read here: https://www.npmjs.com/package/acorn
 
-  acorn-walk: acorn-walk is a module that works with acorn to give more possibilities to on how acorn can interact with the parsed code
+  acorn-walk: acorn-walk is a module that works with acorn to give more possibilities to on how acorn can interact with the parsed code,
   for more information read here: https://www.npmjs.com/package/acorn-walk
 
 CREDITS:
   This project would not have been possible without the help from the following developers:
-    matth26676
-    benja26584
+    matth26676,
+    benja26584,
     csmith1188
 
   Feel free to use this project for other creations, however I ask that you give credit to all the developers here
